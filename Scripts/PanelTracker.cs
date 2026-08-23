@@ -20,6 +20,9 @@ namespace ControllerSupport
 		private static readonly FieldInfo StackField =
 			typeof(PanelStack).GetField("_stack", BindingFlags.Instance | BindingFlags.NonPublic);
 
+		private static readonly FieldInfo RootField =
+			typeof(PanelStack).GetField("_root", BindingFlags.Instance | BindingFlags.NonPublic);
+
 		private readonly PanelStack _panelStack;
 		private readonly EventBus _eventBus;
 
@@ -53,6 +56,13 @@ namespace ControllerSupport
 		// The element PanelStack actually pushed. For overlay/dialog panels this is the overlay
 		// wrapper rather than the panel itself, which is what we want: it is the whole of what the
 		// player can currently interact with.
+		//
+		// With nothing pushed this falls back to the whole UI root, which is what makes the Game and
+		// MapEditor scenes work at all: there, the HUD is not on the panel stack. UILayout calls
+		// PanelStack.Initialize("Common/GameUI", "Panels") and then hangs the bottom bar, entity
+		// panels, notifications and the rest off *sibling* containers of "Panels" via AddBottomBar /
+		// AddTopLeft / AddAbsoluteItem. So an empty stack means "no dialog is up", not "nothing to
+		// navigate", and the root is the only element covering both the HUD and the panel container.
 		public VisualElement TopElement
 		{
 			get
@@ -99,7 +109,7 @@ namespace ControllerSupport
 
 			_dirty = false;
 			_topController = null;
-			_topElement = null;
+			_topElement = Root();
 
 			if (_reflectionFailed || StackField == null)
 			{
@@ -131,13 +141,31 @@ namespace ControllerSupport
 					}
 
 					_topController = _panelControllerProperty.GetValue(stackedPanel) as IPanelController;
-					_topElement = _visualElementProperty.GetValue(stackedPanel) as VisualElement;
+					_topElement = _visualElementProperty.GetValue(stackedPanel) as VisualElement ?? Root();
 					return;
 				}
 			}
 			catch (Exception e)
 			{
 				ReportReflectionFailure(e.Message);
+			}
+		}
+
+		// Null until UILayout (Game/MapEditor) or TitleScreen (MainMenu) has run PanelStack.Initialize.
+		private VisualElement Root()
+		{
+			if (RootField == null)
+			{
+				return null;
+			}
+
+			try
+			{
+				return RootField.GetValue(_panelStack) as VisualElement;
+			}
+			catch (Exception)
+			{
+				return null;
 			}
 		}
 

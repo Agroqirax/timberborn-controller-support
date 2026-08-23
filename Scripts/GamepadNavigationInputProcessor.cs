@@ -107,13 +107,19 @@ namespace ControllerSupport
 
 			RefreshHighlightIfMoved();
 
-			var handled = false;
-
 			var direction = _reader.ReadMove(gamepad);
 			if (direction != Vector2Int.zero)
 			{
-				handled = Move(direction);
+				Move(direction);
 			}
+
+			// Deliberately not reported as handled. CallInputProcessors stops at the first processor
+			// returning true, and this one re-registers itself to the front of the queue - so claiming
+			// a held stick would freeze every processor behind it for as long as it is held, including
+			// camera panning and the game's own WASD camera. Nothing else in the chain reads the left
+			// stick, so there is nothing to protect it from anyway. A button press is momentary and
+			// costs at most a frame, so those still report honestly.
+			var handled = false;
 
 			if (gamepad.buttonSouth.wasPressedThisFrame)
 			{
@@ -161,13 +167,13 @@ namespace ControllerSupport
 			}
 		}
 
-		private bool Move(Vector2Int direction)
+		private void Move(Vector2Int direction)
 		{
 			RefreshCandidates();
 			if (_candidates.Count == 0)
 			{
 				ClearSelection();
-				return false;
+				return;
 			}
 
 			// A sideways push on a slider (or a buttons-only dropdown) changes its value rather than
@@ -176,7 +182,7 @@ namespace ControllerSupport
 			if (direction.x != 0 && _selected != null && ControlActivator.TryAdjust(_selected, direction.x))
 			{
 				_highlighter.Apply(_selected);
-				return true;
+				return;
 			}
 
 			var next = SpatialNavigator.Next(_candidates, _selected, direction);
@@ -185,11 +191,6 @@ namespace ControllerSupport
 				Select(next);
 				ScrollIntoView(next);
 			}
-
-			// Consumed either way. There is nothing else in the chain that wants the stick, and
-			// reporting "unhandled" at the edge of a panel would only invite another processor to act
-			// on a push the player meant for us.
-			return true;
 		}
 
 		// Rebuilt on every step rather than cached. A step happens at most a handful of times a

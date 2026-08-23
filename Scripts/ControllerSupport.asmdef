@@ -14,7 +14,8 @@
     "Timberborn.InputSystem.dll",
     "Timberborn.CoreUI.dll",
     "Timberborn.UISound.dll",
-    "Timberborn.DropdownSystem.dll"
+    "Timberborn.DropdownSystem.dll",
+    "Timberborn.CameraSystem.dll"
   ],
   "autoReferenced": true,
   "defineConstraints": [],

@@ -103,6 +103,42 @@ already tracks it precisely, and everything needed to mirror that is reachable:
   a factory with `RegisterCallback<ClickEvent>` — they are *not* `Button`s. See
   `Timberborn.GameSaveRepositorySystemUI/SaveList.cs`.
 
+## The Game and MapEditor scenes lay out UI differently
+
+The MainMenu puts everything on the panel stack, so "the front panel" is the whole story there. The
+Game scene does not:
+
+- `UILayout` (`Timberborn.UILayoutSystem`, `ILoadableSingleton`) calls
+  `PanelStack.Initialize("Common/GameUI", "Panels")` and then hangs the HUD off **sibling containers
+  of the `Panels` container** — `Top-left`, `Top-right`, `Top-bar`, `Bottom-left`, `Bottom-right`,
+  `Bottom-bar`, `Absolute-items` — via `AddTopLeft` / `AddBottomBar` / `AddAbsoluteItem` / etc.
+- So the bottom bar, entity panel (`Absolute-items`), district panel, notifications and alerts are
+  **not on the panel stack**. Only dialogs and boxes are. An empty stack means "no dialog is up",
+  not "there is nothing to interact with".
+- The usable fallback is `PanelStack`'s private `_root` — the `UIDocument` root returned by
+  `Initialize` — which is the only element covering both the HUD containers and the panel container.
+- The HUD also changes without any panel event (an entity panel appears when something is selected),
+  so anything cached per panel-event will go stale there. Re-deriving on demand is the safer default.
+
+## Camera
+
+`CameraService` is public and bound in `Game`/`MapEditor` by `CameraSystemConfigurator`.
+`MoveCameraBy(Vector3)` already rotates the delta by the camera's `HorizontalAngle`, so passing a
+stick vector straight through gives camera-relative panning with no extra maths. `ModifyZoomLevel`,
+`ModifyHorizontalAngle` and `ModifyVerticalAngle` are there too.
+
+`KeyboardCameraController` is the reference implementation, and worth matching: its speed is
+`(InputSettings.KeyboardCameraMovementSpeed * 50 + 1) * CameraService.ZoomSpeedScale * dt`, with `dt`
+capped at 0.2s so a frame hitch cannot fling the camera. `InputSettings` is public in
+`Timberborn.InputSystem`; note Unity ships its own `InputSettings`, so the using has to be aliased.
+`CappedTime` is internal — inline the `Min(unscaledDeltaTime, 0.2f)` instead.
+
+**A continuous input must never return `true` from `ProcessInput`.** `CallInputProcessors` stops at
+the first processor returning true, so a processor that claims a held stick freezes everything
+behind it for as long as it is held — camera panning and the game's own WASD camera included. This
+bites hardest for a processor that re-registers itself to the front of the queue. Momentary presses
+are fine to claim; held axes are not.
+
 ## Controls (what a "single control" actually is)
 
 - Timberborn's controls are **composites**, and their inner parts are independently clickable. A
