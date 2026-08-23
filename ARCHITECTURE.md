@@ -103,6 +103,39 @@ already tracks it precisely, and everything needed to mirror that is reachable:
   a factory with `RegisterCallback<ClickEvent>` — they are *not* `Button`s. See
   `Timberborn.GameSaveRepositorySystemUI/SaveList.cs`.
 
+## Controls (what a "single control" actually is)
+
+- Timberborn's controls are **composites**, and their inner parts are independently clickable. A
+  `Slider` is a track plus a drag container plus a dragger; `PreciseSlider : VisualElement` wraps a
+  `Slider` with Decrease/Increase `Button`s; `Dropdown : VisualElement` holds `Selection`,
+  `ArrowDown`, `ArrowLeft`, `ArrowRight` buttons. Any navigation scheme that walks the tree must
+  treat these as **leaves**, or one control becomes a scatter of candidates at slightly different
+  positions — which shows up as a control that highlights when approached from one direction and
+  not another.
+- The `Dropdown` itself carries no click handler; it delegates to an inner button. `Selection` when
+  the field is clickable (class `dropdown__selectable`), `ArrowDown` when the UXML sets
+  `buttons-only-selection`. In buttons-only mode `ArrowLeft`/`ArrowRight` step the value; otherwise
+  both are `display: none`.
+- `LocalizableSlider : Slider`, `LocalizableSliderInt : SliderInt`, `LocalizableToggle : Toggle` —
+  so type checks catch them. `PreciseSlider` and `Dropdown` are plain `VisualElement`s and need
+  naming explicitly. `RadioToggle` is not a `VisualElement` at all — it's a controller wrapping real
+  toggles.
+- Setting `PreciseSlider`'s inner `Q<Slider>("Slider").value` propagates correctly: it registers
+  `RegisterValueChangedCallback` on that slider in its constructor.
+
+## Dropdown lists live outside the panel that opened them
+
+`DropdownListDrawer` (public, `AsSingleton()` in all three contexts) builds its **own UIDocument
+root** via `_rootVisualElementProvider.Create("DropdownListDrawer", "Core/DropdownItems", 2)` and
+moves the item elements into a `ScrollView` inside it. So the open list is *not* a descendant of the
+panel that opened it, and a walk over the front panel will never find it. `DropdownVisible` is
+public; the `_items` ScrollView is private and needs one reflected field read to use as a scope.
+
+It also registers itself as an `IInputProcessor` while open, but returns `true` only for cancel or a
+click outside, so it doesn't block a mod processor. It closes on `_inputService.Cancel` — meaning a
+mod that drives cancel through `IPanelController.OnUICancelled()` instead of the keybinding has to
+close the dropdown itself first.
+
 ## UI Toolkit pitfalls hit while building this mod
 
 1. **`NavigationSubmitEvent` does not click a Timberborn button.** `Button` handles it via
@@ -120,19 +153,46 @@ already tracks it precisely, and everything needed to mirror that is reachable:
 3. **Built-in spatial navigation is unreliable here.** Dispatching `NavigationMoveEvent` lets
    Unity's `NavigateFocusRing` pick the next element, but in Timberborn's sparser panels it
    repeatedly resolved back to the same button and got stuck. Score candidates by geometry instead:
-   quantise the stick to one cardinal axis, then pick the candidate with the smallest
-   `advance + crossAxisGap * penalty`, where advance is the centre-to-centre distance along the
-   travel direction and the gap is measured edge-to-edge so anything sharing your row or column
-   scores zero. (Stepping an index through the candidate list in *tree order* — an earlier attempt —
-   never dead-ends either, but makes left/right and up/down do the same thing and wraps the
-   selection into unrelated parts of the panel.)
+   quantise the stick to one cardinal axis, then take the nearest candidate ahead **whose cross-axis
+   band overlaps yours** — the gap measured edge-to-edge between the two elements' extents on the
+   perpendicular axis, which is zero when they share a row (moving sideways) or a column (moving up
+   and down).
+   **Make that overlap a hard requirement, not a weighted penalty.** Weighting it looks more
+   forgiving and is actively wrong on a page of stacked rows: the vertical gap between two rows is
+   far smaller than the horizontal distance across one, so a sideways push scores a control in a
+   neighbouring row as a fine match and jumps to it. With overlap required, a sideways push in a
+   single-column list correctly does nothing. Wrap-around should carry the same requirement, so a
+   list cycles without the wrap landing in a different column.
+   **Hard alignment needs an escape hatch**, or a control that lines up with nothing becomes a place
+   the player can enter and never leave — the title screen's Discord/Merchandise buttons sit in their
+   own corner row, aligned with neither the main button column nor each other's column. Gate the
+   escape on *clustering*: group candidates by "shares a row or a column with", transitively, and
+   allow one unaligned hop only out of a cluster that cannot reach the rest of the panel at all. A
+   settings page is one big cluster, so it never fires there. The same clustering gives a sane
+   starting selection — the top-left of the **largest** cluster, so the title screen starts on the
+   main menu column instead of whichever corner button sits highest on screen.
+   (Stepping an index through the candidate list in *tree order* — an earlier attempt — makes
+   left/right and up/down do the same thing and wraps into unrelated parts of the panel.)
 4. **Focus is tracked per composite root.** `FocusController` keeps a focused element per subtree,
    so `focusController.focusedElement` never gives one coherent "current element" across panels,
    and `FocusOutEvent`-based highlight cleanup leaves stale highlights behind. Track selection in
    the mod instead.
 5. **No visible `:focus` styling** in Timberborn's theme, but `:hover` is styled. Reusing the hover
    pseudo-state makes a controller selection look native. `VisualElement.pseudoStates` and the
-   `PseudoStates` enum (`Hover = 2`) are `internal` → reflection required.
+   `PseudoStates` enum (`Hover = 2`) are `internal` → reflection required. **Setting it on one
+   element is not enough**: a real mouse sets `Hover` on the element under the pointer *and all its
+   ancestors*, and composite controls put their visible styling on an inner part (a Toggle's
+   checkmark, a Slider's dragger, a Dropdown's field), so flagging the outer control alone leaves it
+   looking unselected. Use the public `IPanel.Pick(Vector2)` to ask what a pointer resting at the
+   control's centre would hit, then set the state on that element up through the control. Remember
+   exactly which elements were set so they can be unset exactly. **Picking at the centre is only
+   right for simple controls.** A `Dropdown`'s bounds include its label, so its centre can land well
+   away from the `Selection` button that carries `dropdown__selectable`; a `Slider`'s centre sits on
+   inert track. For those, name the styled part explicitly — `Selection` for a dropdown,
+   `unity-drag-container` / `unity-tracker` / `unity-dragger` for a slider, `unity-checkmark` /
+   `.unity-toggle__input` for a toggle — and walk up from there. Prefer naming the part even when
+   picking happens to work: a pick is defeated by anything overlapping the control, and the last
+   row of a scrolling page is a good place to discover that.
 6. `ScrollView.ScrollTo(VisualElement)` is public — use it to keep the selection on screen inside
    scrolling panels — but it **throws** `ArgumentException` unless the element is inside that
    ScrollView's `contentContainer`. A `Scroller` (the scrollbar) holds `RepeatButton`s and a dragger
@@ -142,6 +202,20 @@ already tracks it precisely, and everything needed to mirror that is reachable:
 7. Detecting "is this element clickable" generically: reflect `VisualElement.m_CallbackRegistry` →
    `m_BubbleUpCallbacks` → `m_Callbacks` (`m_Array`/`m_Count`) and compare each functor's public
    `eventTypeId` field against `EventBase<ClickEvent>.TypeId()` (which is public).
+   **On its own this test is useless in Timberborn**, because `UISoundInitializer` is an
+   `IVisualElementInitializer` that does `visualElement.RegisterCallback<ClickEvent>(PlayUISound)` on
+   *every element in the game* — it plays whatever the element's `--click-sound` custom style names.
+   So nearly everything answers yes, section headers and plain labels included. Filter that one
+   callback out: read the functor's private `m_Callback` field and skip it when the delegate's
+   `Target is UISoundInitializer` (both public types). Note `m_Callback` is declared on each closed
+   generic functor type, so its `FieldInfo` must be cached per type — unlike `eventTypeId`, which
+   lives on the shared `EventCallbackFunctorBase`. `UISoundInitializer` is the only blanket
+   registrar; every other `IVisualElementInitializer` is type-specific.
+8. **`IPanel.Pick` fails on anything scrolled out of view** — the point falls outside the clipped
+   viewport and comes back null. So a hover-emulating highlight can't be computed for an element
+   that is about to be scrolled into view; `ScrollTo` has only just been asked, and may even defer.
+   Re-apply the highlight whenever the selected element's `worldBound` centre has moved instead of
+   guessing at a frame count: it self-corrects for deferred scrolls and reflows, and settles.
 
 ## Environment note
 

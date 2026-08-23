@@ -15,21 +15,26 @@ namespace ControllerSupport
 
 		private readonly InputService _inputService;
 		private readonly PanelTracker _panelTracker;
+		private readonly DropdownTracker _dropdownTracker;
 		private readonly UISoundController _uiSoundController;
 
 		private readonly GamepadReader _reader = new GamepadReader();
+		private readonly SelectionHighlighter _highlighter = new SelectionHighlighter();
+		private readonly SelectionMemory _memory = new SelectionMemory();
 		private readonly List<VisualElement> _candidates = new List<VisualElement>();
 
 		private VisualElement _scope;
 		private VisualElement _selected;
 		private Vector2 _lastSelectionCentre;
+		private Vector2 _highlightCentre;
 		private float _nextFailureLogTime;
 
 		public GamepadNavigationInputProcessor(InputService inputService, PanelTracker panelTracker,
-			UISoundController uiSoundController)
+			DropdownTracker dropdownTracker, UISoundController uiSoundController)
 		{
 			_inputService = inputService;
 			_panelTracker = panelTracker;
+			_dropdownTracker = dropdownTracker;
 			_uiSoundController = uiSoundController;
 		}
 
@@ -86,7 +91,9 @@ namespace ControllerSupport
 				return false;
 			}
 
-			var scope = _panelTracker.TopElement;
+			// An open dropdown list owns navigation outright: it lives in its own UIDocument root,
+			// and nothing behind it should be reachable until it closes.
+			var scope = _dropdownTracker.Scope ?? _panelTracker.TopElement;
 			if (scope == null)
 			{
 				ClearSelection();
@@ -95,9 +102,10 @@ namespace ControllerSupport
 
 			if (!ReferenceEquals(scope, _scope))
 			{
-				_scope = scope;
-				ClearSelection();
+				EnterScope(scope);
 			}
+
+			RefreshHighlightIfMoved();
 
 			var handled = false;
 
@@ -120,6 +128,39 @@ namespace ControllerSupport
 			return handled;
 		}
 
+		// Leaving a scope banks where the selection was; entering one puts it back. This is what
+		// makes choosing a dropdown value return the player to that dropdown rather than to the top
+		// of the page, and it does the same favour when backing out of a submenu.
+		private void EnterScope(VisualElement scope)
+		{
+			if (_scope != null && _selected != null)
+			{
+				_memory.Remember(_scope, _selected, _lastSelectionCentre);
+			}
+
+			ClearSelection();
+			_scope = scope;
+
+			// The new scope may not have been laid out yet, in which case there are no candidates to
+			// restore onto and the first push simply starts from the top - an acceptable miss.
+			NavigationCandidates.Collect(_scope, _candidates);
+
+			var restored = _memory.Restore(_scope, _candidates);
+
+			// A freshly opened dropdown has no history, but landing on its first item beats making
+			// the player push once just to enter the list they deliberately opened.
+			if (restored == null && _dropdownTracker.IsOpen)
+			{
+				restored = SpatialNavigator.First(_candidates);
+			}
+
+			if (restored != null)
+			{
+				Select(restored);
+				ScrollIntoView(restored);
+			}
+		}
+
 		private bool Move(Vector2Int direction)
 		{
 			RefreshCandidates();
@@ -127,6 +168,15 @@ namespace ControllerSupport
 			{
 				ClearSelection();
 				return false;
+			}
+
+			// A sideways push on a slider (or a buttons-only dropdown) changes its value rather than
+			// moving off it. Re-applying the highlight afterwards matters because adjusting moves the
+			// dragger, which changes what sits under the control's centre.
+			if (direction.x != 0 && _selected != null && ControlActivator.TryAdjust(_selected, direction.x))
+			{
+				_highlighter.Apply(_selected);
+				return true;
 			}
 
 			var next = SpatialNavigator.Next(_candidates, _selected, direction);
@@ -161,9 +211,13 @@ namespace ControllerSupport
 			}
 
 			// The panel rebuilt underneath us. Take the selection to whatever now occupies that spot.
-			SelectionHighlighter.Remove(_selected);
 			_selected = SpatialNavigator.NearestTo(_candidates, _lastSelectionCentre);
-			SelectionHighlighter.Apply(_selected);
+			if (_selected != null)
+			{
+				_highlightCentre = _selected.worldBound.center;
+			}
+
+			_highlighter.Apply(_selected);
 		}
 
 		private bool Confirm()
@@ -182,28 +236,9 @@ namespace ControllerSupport
 				return false;
 			}
 
-			Activate(_selected);
+			ControlActivator.Activate(_selected);
 			_uiSoundController.PlayClickSound();
 			return true;
-		}
-
-		private static void Activate(VisualElement element)
-		{
-			// A Toggle reacts to pointer events through its Clickable manipulator, not to ClickEvent,
-			// so a synthesised click slides straight past it. Setting the value fires the ChangeEvent
-			// the game is actually listening for.
-			if (element is Toggle toggle)
-			{
-				toggle.value = !toggle.value;
-				return;
-			}
-
-			// ClickEvent derives from PointerEventBase, whose dispatch routes to whatever sits under
-			// the mouse unless a target is already set. Setting it is what makes the press land on the
-			// selected element instead of the hovered one.
-			using var clickEvent = ClickEvent.GetPooled();
-			clickEvent.target = element;
-			element.SendEvent(clickEvent);
 		}
 
 		// The old build synthesised an Escape key press on the real keyboard device and released it a
@@ -212,6 +247,16 @@ namespace ControllerSupport
 		// and free of side effects.
 		private bool Cancel()
 		{
+			// The drawer closes itself on the Cancel keybinding, which we deliberately no longer
+			// synthesise - so closing it is on us before the press reaches the panel behind it.
+			if (_dropdownTracker.IsOpen)
+			{
+				ClearSelection();
+				_dropdownTracker.Close();
+				_uiSoundController.PlayCancelSound();
+				return true;
+			}
+
 			var controller = _panelTracker.TopController;
 			if (controller == null)
 			{
@@ -242,6 +287,29 @@ namespace ControllerSupport
 			}
 		}
 
+		// The highlight is built from what a pointer at the control's centre would hit, so it can only
+		// be worked out once the control is actually on screen. Selecting something below the fold
+		// highlights it *before* ScrollIntoView has brought it up - at which point the pick lands
+		// outside the clipped viewport and comes back empty, leaving the control looking unselected.
+		// Rather than guess at how many frames the scroll needs, re-apply whenever the selection has
+		// moved. That self-corrects for deferred scrolls and reflows alike, and settles on its own.
+		private void RefreshHighlightIfMoved()
+		{
+			if (_selected == null || _selected.panel == null)
+			{
+				return;
+			}
+
+			var centre = _selected.worldBound.center;
+			if ((centre - _highlightCentre).sqrMagnitude < 1f)
+			{
+				return;
+			}
+
+			_highlightCentre = centre;
+			_highlighter.Apply(_selected);
+		}
+
 		private void Select(VisualElement element)
 		{
 			if (ReferenceEquals(_selected, element))
@@ -249,20 +317,15 @@ namespace ControllerSupport
 				return;
 			}
 
-			ClearSelection();
 			_selected = element;
 			_lastSelectionCentre = element.worldBound.center;
-			SelectionHighlighter.Apply(element);
+			_highlightCentre = _lastSelectionCentre;
+			_highlighter.Apply(element);
 		}
 
 		private void ClearSelection()
 		{
-			if (_selected == null)
-			{
-				return;
-			}
-
-			SelectionHighlighter.Remove(_selected);
+			_highlighter.Clear();
 			_selected = null;
 		}
 

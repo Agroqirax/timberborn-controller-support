@@ -36,9 +36,10 @@ namespace ControllerSupport
 				return false;
 			}
 
-			// Controls are leaves as far as navigation is concerned. Descending into a Button would
-			// let a clickable label inside it win the innermost-wins rule and steal the selection.
-			if (element is Button || element is Toggle)
+			// Controls are leaves as far as navigation is concerned. Descending into one would let its
+			// internal parts - a clickable label, a slider's dragger and track - each become their own
+			// candidate, scattering a single control across several selectable positions.
+			if (ControlActivator.IsControl(element))
 			{
 				if (IsBigEnough(element))
 				{

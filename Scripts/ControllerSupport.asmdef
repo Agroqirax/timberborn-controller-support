@@ -13,7 +13,8 @@
     "Timberborn.SingletonSystem.dll",
     "Timberborn.InputSystem.dll",
     "Timberborn.CoreUI.dll",
-    "Timberborn.UISound.dll"
+    "Timberborn.UISound.dll",
+    "Timberborn.DropdownSystem.dll"
   ],
   "autoReferenced": true,
   "defineConstraints": [],

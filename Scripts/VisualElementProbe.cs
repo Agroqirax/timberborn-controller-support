@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using Timberborn.CoreUI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -28,6 +30,10 @@ namespace ControllerSupport
 		private static FieldInfo _eventTypeIdField;
 		private static bool _clickProbeUnavailable;
 
+		// m_Callback is declared on each generic functor instantiation, so its FieldInfo differs per
+		// closed type and cannot be cached in a single field the way the shared base's members can.
+		private static readonly Dictionary<Type, FieldInfo> CallbackFields = new Dictionary<Type, FieldInfo>();
+
 		public static bool SupportsHoverState => PseudoStatesProperty != null;
 
 		public static void SetHoverState(VisualElement element, bool hovered)
@@ -53,9 +59,16 @@ namespace ControllerSupport
 			}
 		}
 
-		// True when the element itself has a ClickEvent callback registered. This is what makes
-		// non-Button controls reachable - list rows, for example, are plain VisualElements that
-		// call RegisterCallback<ClickEvent>(...) rather than deriving from Button.
+		// True when the element has a ClickEvent callback that actually does something.
+		//
+		// This is what makes non-Button controls reachable - list rows, for example, are plain
+		// VisualElements that call RegisterCallback<ClickEvent>(...) rather than deriving from Button.
+		//
+		// The catch: UISoundInitializer is an IVisualElementInitializer, and it registers a ClickEvent
+		// handler on *every element in the game* to play the click sound named by its `--click-sound`
+		// custom style. So a naive "has a ClickEvent callback" test answers yes for nearly everything,
+		// including section headers and plain labels. Skipping that one callback is what puts the test
+		// back to meaning "a player can click this".
 		public static bool HasClickHandler(VisualElement element)
 		{
 			if (_clickProbeUnavailable || CallbackRegistryField == null)
@@ -88,7 +101,12 @@ namespace ControllerSupport
 					}
 
 					var typeIdField = GetEventTypeIdField(functor);
-					if (typeIdField != null && (long)typeIdField.GetValue(functor) == ClickEventTypeId)
+					if (typeIdField == null || (long)typeIdField.GetValue(functor) != ClickEventTypeId)
+					{
+						continue;
+					}
+
+					if (!IsUiSoundCallback(functor))
 					{
 						return true;
 					}
@@ -101,6 +119,26 @@ namespace ControllerSupport
 			}
 
 			return false;
+		}
+
+		// The sound handler is a private instance method on UISoundInitializer, so the delegate it was
+		// registered through carries that instance as its target.
+		private static bool IsUiSoundCallback(object functor)
+		{
+			var field = GetCallbackField(functor.GetType());
+			return field?.GetValue(functor) is Delegate callback && callback.Target is UISoundInitializer;
+		}
+
+		private static FieldInfo GetCallbackField(Type functorType)
+		{
+			if (CallbackFields.TryGetValue(functorType, out var field))
+			{
+				return field;
+			}
+
+			field = functorType.GetField("m_Callback", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+			CallbackFields[functorType] = field;
+			return field;
 		}
 
 		private static object GetBubbleUpCallbackList(object registry)

@@ -8,6 +8,7 @@ namespace ControllerSupport
 		protected override void Configure()
 		{
 			Bind<PanelTracker>().AsSingleton();
+			Bind<DropdownTracker>().AsSingleton();
 			Bind<GamepadNavigationInputProcessor>().AsSingleton();
 		}
 	}
