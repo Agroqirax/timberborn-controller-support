@@ -22,7 +22,17 @@
         "Timberborn.BlockObjectTools.dll",
         "Timberborn.Coordinates.dll",
         "Timberborn.TerrainQueryingSystem.dll",
-        "Timberborn.LevelVisibilitySystem.dll"
+        "Timberborn.LevelVisibilitySystem.dll",
+        "Timberborn.PlantingUI.dll",
+        "Timberborn.DemolishingUI.dll",
+        "Timberborn.ForestryUI.dll",
+        "Timberborn.Rendering.dll",
+        "Timberborn.Planting.dll",
+        "Timberborn.Common.dll",
+        "Timberborn.BlueprintSystem.dll",
+        "Timberborn.AreaSelectionSystem.dll",
+        "Timberborn.AreaSelectionSystemUI.dll",
+        "Timberborn.BlockSystem.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
