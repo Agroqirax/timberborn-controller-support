@@ -15,6 +15,7 @@ namespace ControllerSupport
 	internal static class NavigationCandidates
 	{
 		private const float MinimumSize = 1f;
+		private const string ExtensionTogglerName = "ExtensionToggler";
 
 		public static void Collect(VisualElement scope, List<VisualElement> into)
 		{
@@ -31,7 +32,7 @@ namespace ControllerSupport
 			// A Scroller holds the scrollbar's RepeatButtons and dragger. They are clickable and are
 			// descendants of the ScrollView, but they sit outside its content-container, so they show
 			// up as selections the player cannot see and make ScrollTo throw.
-			if (element is Scroller || !IsDisplayed(element))
+			if (element is Scroller || IsRedundant(element) || !IsDisplayed(element))
 			{
 				return false;
 			}
@@ -63,6 +64,17 @@ namespace ControllerSupport
 				return true;
 			}
 
+			// A ListView whose rows are not independently clickable. The save list registers a ClickEvent
+			// per row and so is already covered above; the settlement list next to it does not - it leaves
+			// selection entirely to the ListView - so without this it offered nothing to aim at at all.
+			// Falling through to here rather than treating every collection view as a leaf keeps the lists
+			// that do work working, and their rows individually selectable.
+			if (element is BaseVerticalCollectionView && IsBigEnough(element))
+			{
+				into.Add(element);
+				return true;
+			}
+
 			// Anything that registered a ClickEvent callback counts too. That is what brings list
 			// rows - saves, maps, mods - into the rotation, since they are plain VisualElements built
 			// by a factory rather than Buttons.
@@ -73,6 +85,15 @@ namespace ControllerSupport
 			}
 
 			return false;
+		}
+
+		// Controls that duplicate an action already reachable from a bigger, easier target next to
+		// them. TopBarCounterFactory wires the same ToggleVisibility onto both the counter box and the
+		// little arrow underneath it, so collecting both puts two stops where the player sees one thing
+		// to aim at - and the arrow is the fiddlier half.
+		private static bool IsRedundant(VisualElement element)
+		{
+			return element.name == ExtensionTogglerName;
 		}
 
 		private static bool IsDisplayed(VisualElement element)

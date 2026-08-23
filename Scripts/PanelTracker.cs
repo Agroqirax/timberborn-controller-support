@@ -33,6 +33,7 @@ namespace ControllerSupport
 		private bool _dirty = true;
 		private IPanelController _topController;
 		private VisualElement _topElement;
+		private bool _hasStackedPanel;
 
 		public PanelTracker(PanelStack panelStack, EventBus eventBus)
 		{
@@ -63,6 +64,17 @@ namespace ControllerSupport
 		// panels, notifications and the rest off *sibling* containers of "Panels" via AddBottomBar /
 		// AddTopLeft / AddAbsoluteItem. So an empty stack means "no dialog is up", not "nothing to
 		// navigate", and the root is the only element covering both the HUD and the panel container.
+		// Whether a real panel is on the stack, as opposed to the scene's bare UI root. Callers use it
+		// to tell "a menu or dialog is open" from "the player is just looking at the game".
+		public bool HasStackedPanel
+		{
+			get
+			{
+				Refresh();
+				return _hasStackedPanel;
+			}
+		}
+
 		public VisualElement TopElement
 		{
 			get
@@ -110,6 +122,7 @@ namespace ControllerSupport
 			_dirty = false;
 			_topController = null;
 			_topElement = Root();
+			_hasStackedPanel = false;
 
 			if (_reflectionFailed || StackField == null)
 			{
@@ -142,6 +155,7 @@ namespace ControllerSupport
 
 					_topController = _panelControllerProperty.GetValue(stackedPanel) as IPanelController;
 					_topElement = _visualElementProperty.GetValue(stackedPanel) as VisualElement ?? Root();
+				_hasStackedPanel = true;
 					return;
 				}
 			}

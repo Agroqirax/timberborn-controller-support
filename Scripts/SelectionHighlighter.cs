@@ -19,17 +19,26 @@ namespace ControllerSupport
 	internal class SelectionHighlighter
 	{
 		private static readonly Color FallbackColor = new Color(1f, 0.78f, 0.1f);
+		private static readonly Color RingColor = new Color(1f, 0.78f, 0.1f, 0.9f);
+		private static readonly Color RingFill = new Color(1f, 0.78f, 0.1f, 0.12f);
+		private const float RingBorderWidth = 2f;
+		private const float RingCornerRadius = 4f;
 		private const float FallbackBorderWidth = 2f;
 
 		private readonly List<VisualElement> _highlighted = new List<VisualElement>();
 		private readonly List<VisualElement> _pending = new List<VisualElement>();
 		private readonly List<VisualElement> _targets = new List<VisualElement>();
 
+		private VisualElement _ring;
+		private VisualElement _ringHost;
+		private Rect _ringPlacement;
+
 		public void Apply(VisualElement element)
 		{
-			Clear();
+			ClearHover();
 			if (element == null)
 			{
+				DetachRing();
 				return;
 			}
 
@@ -55,12 +64,21 @@ namespace ControllerSupport
 			{
 				SetHighlighted(highlighted, true);
 			}
+
+			UpdateRing(ControlActivator.RingTarget(element));
 		}
 
 		// Safe to call when the elements have already been detached from the panel, which is the
 		// normal case when a panel closes while something in it was selected.
 		public void Clear()
 		{
+			DetachRing();
+			ClearHover();
+		}
+
+		private void ClearHover()
+		{
+
 			foreach (var highlighted in _highlighted)
 			{
 				SetHighlighted(highlighted, false);
@@ -122,6 +140,106 @@ namespace ControllerSupport
 
 				_pending.Add(current);
 			}
+		}
+
+		// Drawn on every selection, on top of whatever :hover gives us. The theme styles hover very
+		// unevenly - some controls barely change, and the small ones change so little that the cursor is
+		// easy to lose entirely - so the ring is what actually tells the player where they are, and hover
+		// is the bonus that makes it look native.
+		//
+		// An absolutely positioned overlay rather than a border on the control itself: UI Toolkit lays
+		// out border-box, so widening the control's own border would eat into its padding and shove the
+		// icon and count around every time the selection lands on it.
+		private void UpdateRing(VisualElement target)
+		{
+			// Parented to the target's *parent*, never to the target. VisualElement drops its measure
+			// function the moment it gains a child - so a text-only Button given a child stops reporting
+			// how wide its text is, collapses to nothing, and wraps one character per line. That is what
+			// turned "read more" into a vertical stack of letters, and what quietly narrowed the mod menu
+			// box around "browse local mods". The parent always has a child already, so it is unaffected.
+			var host = target?.hierarchy.parent;
+			if (host == null)
+			{
+				DetachRing();
+				return;
+			}
+
+			var rect = target.layout;
+			if (float.IsNaN(rect.x) || float.IsNaN(rect.y))
+			{
+				DetachRing();
+				return;
+			}
+
+			_ring ??= CreateRing();
+			if (!ReferenceEquals(_ringHost, host))
+			{
+				DetachRing();
+				host.hierarchy.Add(_ring);
+				_ringHost = host;
+			}
+
+			// layout is measured from the host's border box, absolute offsets from its padding box.
+			var border = host.resolvedStyle;
+			var placement = new Rect(rect.xMin - border.borderLeftWidth, rect.yMin - border.borderTopWidth,
+				rect.width, rect.height);
+
+			// Re-applied every frame the selection moves, and scrolling moves it constantly, so skip the
+			// style writes when nothing actually changed.
+			if (placement == _ringPlacement)
+			{
+				return;
+			}
+
+			_ringPlacement = placement;
+			_ring.style.left = placement.xMin;
+			_ring.style.top = placement.yMin;
+			_ring.style.width = placement.width;
+			_ring.style.height = placement.height;
+		}
+
+		private void DetachRing()
+		{
+			if (_ringHost == null)
+			{
+				return;
+			}
+
+			if (_ring != null && _ring.hierarchy.parent == _ringHost)
+			{
+				_ringHost.hierarchy.Remove(_ring);
+			}
+
+			_ringHost = null;
+			_ringPlacement = default;
+		}
+
+		private static VisualElement CreateRing()
+		{
+			// PickingMode.Ignore keeps it out of the mouse's way, and having no click handler of its own
+			// keeps it out of the candidate walk.
+			var ring = new VisualElement
+			{
+				name = "ControllerSupportSelectionRing",
+				pickingMode = PickingMode.Ignore
+			};
+
+			var style = ring.style;
+			style.position = Position.Absolute;
+			style.backgroundColor = RingFill;
+			style.borderTopWidth = RingBorderWidth;
+			style.borderBottomWidth = RingBorderWidth;
+			style.borderLeftWidth = RingBorderWidth;
+			style.borderRightWidth = RingBorderWidth;
+			style.borderTopColor = RingColor;
+			style.borderBottomColor = RingColor;
+			style.borderLeftColor = RingColor;
+			style.borderRightColor = RingColor;
+			style.borderTopLeftRadius = RingCornerRadius;
+			style.borderTopRightRadius = RingCornerRadius;
+			style.borderBottomLeftRadius = RingCornerRadius;
+			style.borderBottomRightRadius = RingCornerRadius;
+			return ring;
 		}
 
 		private static void SetHighlighted(VisualElement element, bool highlighted)

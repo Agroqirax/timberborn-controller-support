@@ -5,16 +5,17 @@ namespace ControllerSupport
 {
 	// Turns the stick and d-pad into discrete navigation steps.
 	//
-	// Directions come out quantised to a single cardinal axis and already converted to UI Toolkit's
+	// Directions come out quantised to one of eight compass points and already converted to UI Toolkit's
 	// coordinate space, where y grows downwards - the opposite of the stick. Quantising here is what
-	// lets the navigator stay honest about "the element to my left" instead of trying to interpret a
-	// diagonal push.
+	// lets the navigator stay honest about "the element to my left" instead of re-deriving what the
+	// player meant from a raw analog vector on every step.
 	internal class GamepadReader
 	{
 		private const float PressZone = 0.5f;
 		private const float ReleaseZone = 0.35f;
 		private const float InitialRepeatDelay = 0.4f;
 		private const float RepeatInterval = 0.12f;
+		private const float DiagonalRatio = 0.55f;
 
 		private Vector2Int _heldDirection;
 		private float _nextRepeatTime;
@@ -71,11 +72,25 @@ namespace ControllerSupport
 		}
 
 		// Stick y points up, UI Toolkit's y points down, so the vertical axis is inverted here.
+		//
+		// Eight directions, not four, but not eight equal slices either. A diagonal only counts when the
+		// weaker axis is at least DiagonalRatio of the stronger one, which gives each diagonal a narrow
+		// band and leaves the cardinals generous. That matters because a diagonal is a precise request -
+		// there is often nothing in the corner and the move does nothing - so a sloppy push meaning
+		// "upwards" must not be read as one.
 		private static Vector2Int Quantize(Vector2 raw)
 		{
-			return Mathf.Abs(raw.x) >= Mathf.Abs(raw.y)
-				? new Vector2Int(raw.x > 0f ? 1 : -1, 0)
-				: new Vector2Int(0, raw.y > 0f ? -1 : 1);
+			var x = Mathf.Abs(raw.x);
+			var y = Mathf.Abs(raw.y);
+			var stepX = raw.x > 0f ? 1 : -1;
+			var stepY = raw.y > 0f ? -1 : 1;
+
+			if (Mathf.Min(x, y) >= Mathf.Max(x, y) * DiagonalRatio)
+			{
+				return new Vector2Int(stepX, stepY);
+			}
+
+			return x >= y ? new Vector2Int(stepX, 0) : new Vector2Int(0, stepY);
 		}
 	}
 }

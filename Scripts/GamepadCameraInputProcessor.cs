@@ -29,15 +29,17 @@ namespace ControllerSupport
 		private readonly InputService _inputService;
 		private readonly CameraService _cameraService;
 		private readonly InputSettings _inputSettings;
+		private readonly PanelTracker _panelTracker;
 
 		private float _nextFailureLogTime;
 
 		public GamepadCameraInputProcessor(InputService inputService, CameraService cameraService,
-			InputSettings inputSettings)
+			InputSettings inputSettings, PanelTracker panelTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_inputSettings = inputSettings;
+			_panelTracker = panelTracker;
 		}
 
 		public void Load()
@@ -68,6 +70,13 @@ namespace ControllerSupport
 
 		private void Pan()
 		{
+			// While a menu or dialog is up the right stick scrolls it instead, so stand down rather than
+			// panning the world out from behind the panel the player is reading.
+			if (_panelTracker.HasStackedPanel)
+			{
+				return;
+			}
+
 			var gamepad = Gamepad.current;
 			if (gamepad == null)
 			{

@@ -12,6 +12,11 @@ namespace ControllerSupport
 	internal class GamepadNavigationInputProcessor : ILoadableSingleton, IUnloadableSingleton, IInputProcessor
 	{
 		private const float FailureLogInterval = 30f;
+		private const int SubSectionSettleFrames = 8;
+		private const int InitialSelectionFrames = 60;
+		private const float ScrollDeadzone = 0.2f;
+		private const float ScrollSpeed = 1200f;
+		private const float MaxFrameTime = 0.2f;
 
 		private readonly InputService _inputService;
 		private readonly PanelTracker _panelTracker;
@@ -27,6 +32,9 @@ namespace ControllerSupport
 		private VisualElement _selected;
 		private Vector2 _lastSelectionCentre;
 		private Vector2 _highlightCentre;
+		private VisualElement _pendingSubSection;
+		private int _pendingSubSectionFrames;
+		private int _initialSelectionFrames;
 		private float _nextFailureLogTime;
 
 		public GamepadNavigationInputProcessor(InputService inputService, PanelTracker panelTracker,
@@ -60,6 +68,8 @@ namespace ControllerSupport
 		private void OnPanelChanged()
 		{
 			ClearSelection();
+			_pendingSubSection = null;
+			_initialSelectionFrames = 0;
 			_candidates.Clear();
 			_scope = null;
 			_reader.Reset();
@@ -106,6 +116,9 @@ namespace ControllerSupport
 			}
 
 			RefreshHighlightIfMoved();
+			TryInitialSelection();
+			TrySubSectionJump();
+			Scroll(gamepad);
 
 			var direction = _reader.ReadMove(gamepad);
 			if (direction != Vector2Int.zero)
@@ -145,6 +158,7 @@ namespace ControllerSupport
 			}
 
 			ClearSelection();
+			_pendingSubSection = null;
 			_scope = scope;
 
 			// The new scope may not have been laid out yet, in which case there are no candidates to
@@ -153,18 +167,20 @@ namespace ControllerSupport
 
 			var restored = _memory.Restore(_scope, _candidates);
 
-			// A freshly opened dropdown has no history, but landing on its first item beats making
-			// the player push once just to enter the list they deliberately opened.
-			if (restored == null && _dropdownTracker.IsOpen)
-			{
-				restored = SpatialNavigator.First(_candidates);
-			}
+			// With no history to go on, start at the top of the panel. Waiting for the player to push the
+			// stick first meant arriving in a scene with nothing highlighted while A would still press
+			// whatever the panel considers its default - the cursor was there, just invisible.
+			restored ??= SpatialNavigator.First(_candidates);
 
 			if (restored != null)
 			{
 				Select(restored);
 				ScrollIntoView(restored);
+				return;
 			}
+
+			// Nothing to land on yet because the panel has not been laid out. Keep looking for a while.
+			_initialSelectionFrames = InitialSelectionFrames;
 		}
 
 		private void Move(Vector2Int direction)
@@ -176,10 +192,10 @@ namespace ControllerSupport
 				return;
 			}
 
-			// A sideways push on a slider (or a buttons-only dropdown) changes its value rather than
-			// moving off it. Re-applying the highlight afterwards matters because adjusting moves the
+			// A push can land on a control that would rather absorb it: sideways on a slider changes its
+			// value, up or down on a plain ListView moves its selected row. Re-applying the highlight afterwards matters because adjusting moves the
 			// dragger, which changes what sits under the control's centre.
-			if (direction.x != 0 && _selected != null && ControlActivator.TryAdjust(_selected, direction.x))
+			if (_selected != null && ControlActivator.TryAdjust(_selected, direction))
 			{
 				_highlighter.Apply(_selected);
 				return;
@@ -191,6 +207,124 @@ namespace ControllerSupport
 				Select(next);
 				ScrollIntoView(next);
 			}
+		}
+
+		// A panel is often one or two frames away from having a usable layout when it is first shown, so
+		// the opening selection cannot always be made on the spot. Keep trying briefly, and stop the
+		// moment there is a selection - including one the player made themselves in the meantime.
+		private void TryInitialSelection()
+		{
+			if (_initialSelectionFrames <= 0)
+			{
+				return;
+			}
+
+			if (_selected != null)
+			{
+				_initialSelectionFrames = 0;
+				return;
+			}
+
+			_initialSelectionFrames--;
+			RefreshCandidates();
+
+			var first = SpatialNavigator.First(_candidates);
+			if (first == null)
+			{
+				return;
+			}
+
+			_initialSelectionFrames = 0;
+			Select(first);
+			ScrollIntoView(first);
+		}
+
+		// The right stick scrolls whatever list the player is in. It is free to use here: the camera
+		// processor stands down while a panel is stacked, and in the main menu there is no camera at all.
+		// Deliberately does not move the selection - this is the player looking around the list, and
+		// yanking the cursor with the viewport would make it impossible to just read something.
+		private void Scroll(Gamepad gamepad)
+		{
+			if (!_panelTracker.HasStackedPanel && !_dropdownTracker.IsOpen)
+			{
+				return;
+			}
+
+			var stick = gamepad.rightStick.ReadValue();
+			if (stick.magnitude < ScrollDeadzone)
+			{
+				return;
+			}
+
+			var scrollView = FindScrollView();
+			if (scrollView == null)
+			{
+				return;
+			}
+
+			// Capped frame time for the same reason the camera caps it: one long hitch should not fling
+			// the list to the far end.
+			var step = ScrollSpeed * Mathf.Min(Time.unscaledDeltaTime, MaxFrameTime);
+			var offset = scrollView.scrollOffset;
+			offset.x += stick.x * step;
+			offset.y -= stick.y * step;
+
+			// The setter runs both axes through their scrollers, which clamp, so no range check is needed.
+			scrollView.scrollOffset = offset;
+		}
+
+		// The list the selection is actually sitting in, falling back to the scope itself - an open
+		// dropdown *is* a ScrollView - and then to whatever list the panel holds.
+		private ScrollView FindScrollView()
+		{
+			if (_selected is BaseVerticalCollectionView collectionView)
+			{
+				return collectionView.Q<ScrollView>();
+			}
+
+			for (var current = _selected?.hierarchy.parent; current != null; current = current.hierarchy.parent)
+			{
+				if (current is ScrollView scrollView)
+				{
+					return scrollView;
+				}
+			}
+
+			return _scope as ScrollView ?? _scope?.Q<ScrollView>();
+		}
+
+		// Confirming a bottom bar category opens its row of tools above the bar without moving the
+		// selection, which leaves the player pointing at the category they just chose. Take them to the
+		// first tool in the row instead - the leftmost, since that is where the common ones live.
+		//
+		// Spread over several frames because the row is only shown by the click handler, and neither its
+		// display style nor its layout has settled by the time this frame ends. Giving up quietly is the
+		// right answer when nothing appears: pressing the open category again closes it, and the player
+		// should stay where they are.
+		private void TrySubSectionJump()
+		{
+			if (_pendingSubSection == null)
+			{
+				return;
+			}
+
+			if (_pendingSubSectionFrames-- <= 0)
+			{
+				_pendingSubSection = null;
+				return;
+			}
+
+			RefreshCandidates();
+
+			var leftmost = BottomBarNavigation.Leftmost(_candidates, _pendingSubSection);
+			if (leftmost == null)
+			{
+				return;
+			}
+
+			_pendingSubSection = null;
+			Select(leftmost);
+			ScrollIntoView(leftmost);
 		}
 
 		// Rebuilt on every step rather than cached. A step happens at most a handful of times a
@@ -237,8 +371,19 @@ namespace ControllerSupport
 				return false;
 			}
 
+			// Read before activating: the row this category owns is about to appear, but the category
+			// button itself is where the selection would otherwise be stranded.
+			var subSection = BottomBarNavigation.SubSectionFor(_selected);
+
 			ControlActivator.Activate(_selected);
 			_uiSoundController.PlayClickSound();
+
+			if (subSection != null)
+			{
+				_pendingSubSection = subSection;
+				_pendingSubSectionFrames = SubSectionSettleFrames;
+			}
+
 			return true;
 		}
 

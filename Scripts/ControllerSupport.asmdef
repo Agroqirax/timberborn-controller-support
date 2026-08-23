@@ -1,24 +1,25 @@
 {
-  "name": "ControllerSupport",
-  "rootNamespace": "",
-  "references": [
-    "Unity.InputSystem"
-  ],
-  "includePlatforms": [],
-  "excludePlatforms": [],
-  "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [
-    "Bindito.Core.dll",
-    "Timberborn.SingletonSystem.dll",
-    "Timberborn.InputSystem.dll",
-    "Timberborn.CoreUI.dll",
-    "Timberborn.UISound.dll",
-    "Timberborn.DropdownSystem.dll",
-    "Timberborn.CameraSystem.dll"
-  ],
-  "autoReferenced": true,
-  "defineConstraints": [],
-  "versionDefines": [],
-  "noEngineReferences": false
+    "name": "ControllerSupport",
+    "rootNamespace": "",
+    "references": [
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [
+        "Bindito.Core.dll",
+        "Timberborn.SingletonSystem.dll",
+        "Timberborn.InputSystem.dll",
+        "Timberborn.CoreUI.dll",
+        "Timberborn.UISound.dll",
+        "Timberborn.DropdownSystem.dll",
+        "Timberborn.CameraSystem.dll",
+        "Timberborn.ToolSystem.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

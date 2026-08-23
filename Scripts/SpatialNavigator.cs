@@ -31,20 +31,22 @@ namespace ControllerSupport
 				return First(candidates);
 			}
 
+			// A diagonal push is a different question from a cardinal one, so it gets its own answer.
+			if (direction.x != 0 && direction.y != 0)
+			{
+				return NextDiagonal(candidates, current, direction);
+			}
+
 			var from = current.worldBound;
 
-			// "Nearest thing in roughly that direction" sounds more forgiving but is actively wrong on
-			// a page of stacked rows: the vertical gap between two rows is far smaller than the
-			// horizontal distance across one, so a sideways push scores a control in a neighbouring
-			// row as a fine match and jumps to it. Requiring the bands to overlap means a sideways
-			// push in a single-column list correctly does nothing.
+			// "Nearest thing in roughly that direction" sounds more forgiving but is actively wrong on a
+			// page of stacked rows: the vertical gap between two rows is far smaller than the horizontal
+			// distance across one, so a sideways push scores a control in a neighbouring row as a fine
+			// match and jumps to it. Requiring the bands to overlap means a sideways push in a
+			// single-column list correctly does nothing.
 			VisualElement best = null;
 			var bestAdvance = float.MaxValue;
-
-			// If nothing lies ahead we wrap to the far end of the same row or column, so a long list
-			// still cycles - and for the same reason, only among elements we are in line with.
-			VisualElement wrapped = null;
-			var wrappedDistance = 0f;
+			var bestOffset = float.MaxValue;
 
 			foreach (var candidate in candidates)
 			{
@@ -60,22 +62,64 @@ namespace ControllerSupport
 				}
 
 				var advance = Advance(from, to, direction);
-				if (advance > Tolerance)
+				if (advance <= Tolerance)
 				{
-					if (advance < bestAdvance)
-					{
-						bestAdvance = advance;
-						best = candidate;
-					}
+					continue;
 				}
-				else if (-advance > wrappedDistance)
+
+				// Two rows of the toolbar are often offset by half a button, so a push upwards overlaps two
+				// buttons equally well and both sit exactly the same distance away. Taking whichever came
+				// first in the tree meant always taking the left one, and repeated up-down walked the
+				// selection steadily leftwards. Break the tie on which one the player is actually under.
+				var offset = CrossAxisOffset(from, to, direction);
+				var better = advance < bestAdvance - Tolerance
+					|| (advance <= bestAdvance + Tolerance && offset < bestOffset);
+
+				if (better)
 				{
-					wrappedDistance = -advance;
-					wrapped = candidate;
+					bestAdvance = Mathf.Min(bestAdvance, advance);
+					bestOffset = offset;
+					best = candidate;
 				}
 			}
 
-			return best ?? wrapped ?? Escape(candidates, current, direction);
+			return best ?? Escape(candidates, current, direction);
+		}
+
+		// A diagonal push asks for the element in that corner, so both components have to point the way
+		// the stick does - not "the nearest thing in a ninety degree arc", which is just a cardinal move
+		// with extra steps. Nothing in the corner means nothing happens: the gesture is deliberate enough
+		// that guessing at a fallback would be worse than staying put.
+		private static VisualElement NextDiagonal(List<VisualElement> candidates, VisualElement current, Vector2Int direction)
+		{
+			var from = current.worldBound.center;
+			VisualElement best = null;
+			var bestScore = float.MaxValue;
+
+			foreach (var candidate in candidates)
+			{
+				if (ReferenceEquals(candidate, current))
+				{
+					continue;
+				}
+
+				var delta = candidate.worldBound.center - from;
+				var alongX = delta.x * direction.x;
+				var alongY = delta.y * direction.y;
+				if (alongX <= Tolerance || alongY <= Tolerance)
+				{
+					continue;
+				}
+
+				var score = alongX + alongY;
+				if (score < bestScore)
+				{
+					bestScore = score;
+					best = candidate;
+				}
+			}
+
+			return best;
 		}
 
 		// Nothing in our row or column lies that way, which is usually the correct answer. But a
@@ -239,6 +283,14 @@ namespace ControllerSupport
 			return direction.x != 0
 				? IntervalGap(from.yMin, from.yMax, to.yMin, to.yMax)
 				: IntervalGap(from.xMin, from.xMax, to.xMin, to.xMax);
+		}
+
+		// How far off the line of travel the candidate sits, centre to centre. Only used to separate
+		// candidates that are otherwise equally good.
+		private static float CrossAxisOffset(Rect from, Rect to, Vector2Int direction)
+		{
+			var delta = to.center - from.center;
+			return direction.x != 0 ? Mathf.Abs(delta.y) : Mathf.Abs(delta.x);
 		}
 
 		private static float IntervalGap(float aMin, float aMax, float bMin, float bMax)

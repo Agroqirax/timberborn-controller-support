@@ -139,6 +139,43 @@ behind it for as long as it is held — camera panning and the game's own WASD c
 bites hardest for a processor that re-registers itself to the front of the queue. Momentary presses
 are fine to claim; held axes are not.
 
+## Reading the game's own UXML and USS
+
+Every view and stylesheet the game ships is in plain text inside:
+
+```
+<steam>/steamapps/common/Timberborn/Timberborn_Data/StreamingAssets/Modding/UI.zip
+```
+
+(Under Flatpak Steam that is `~/.var/app/com.valvesoftware.Steam/.local/share/Steam/...`.)
+
+408 files, `Views/**/*.uxml` and `Views/**/*.uss`. The AssetRipper export does **not** contain
+these, so read them from here. This is the fastest way to answer "what is this element called",
+"is it a sibling or a child", and "does this thing have a `:hover` rule at all" — all of which
+are otherwise guesswork against decompiled factory code.
+
+Worth knowing about two elements in particular:
+
+- `ExtendableTopBarCounter.uxml` — `CounterWrapper` (the box) and `ExtensionToggler` (the little
+  arrow) are **siblings**, not nested, and `TopBarCounterFactory` wires the same toggle onto both.
+  Only the arrow has a `:hover` rule; the box has none.
+- `BottomBarPanel.uxml` — `SubSection` and `MainSection` are siblings under `BottomBar`. Category
+  buttons go into `MainSection`; each category's tool row is *reparented* into `SubSection` by
+  `BottomBarPanel.AddElement`, and all but the open one are hidden.
+
+### Overriding them needs Unity; adding styles from code does not
+
+`VisualElementLoader` goes through `IAssetLoader.Load<VisualTreeAsset>("UI/Views/...")`, which
+resolves out of asset bundles. Overriding a shipped `.uxml`/`.uss` therefore means shipping an
+asset bundle at the same path (see the sibling `TimberbornCycleRewards` mod), and building an
+asset bundle means opening Unity — which the rest of this mod does not need.
+
+There is no runtime API for authoring a `StyleSheet` from code either (`StyleSheetBuilder` is
+editor-only). So when an element needs a look the theme does not give it, the code-only answer is
+inline styles. `SelectionHighlighter` draws its selection ring as an absolutely positioned child
+overlay rather than as a border on the control: UI Toolkit lays out border-box, so widening the
+control's own border eats into its padding and shoves the contents around.
+
 ## Controls (what a "single control" actually is)
 
 - Timberborn's controls are **composites**, and their inner parts are independently clickable. A
@@ -158,6 +195,57 @@ are fine to claim; held axes are not.
   toggles.
 - Setting `PreciseSlider`'s inner `Q<Slider>("Slider").value` propagates correctly: it registers
   `RegisterValueChangedCallback` on that slider in its constructor.
+
+## Navigation feel, and two things that are deliberately absent
+
+- **No wrapping.** Reaching the end of a row or column stops there. It used to wrap to the far end,
+  which reads fine in a long settings list but is actively confusing in the two-row toolbar: pushing
+  up from the top row dropped you back onto the bottom one, and repeated up/down walked the
+  selection sideways across the bar.
+- **Ties break on cross-axis centre distance, not tree order.** The toolbar's two rows are often
+  offset by half a button, so a push upwards overlaps two buttons equally and both sit exactly the
+  same distance away. Taking the first one found meant always taking the left one - which is what
+  produced the sideways walk above.
+- **Eight directions, unevenly sliced.** A diagonal only registers when the weaker stick axis is at
+  least 55% of the stronger one, so diagonals get a narrow band and the cardinals stay generous. A
+  diagonal move requires a candidate genuinely in that corner and does nothing otherwise, so a
+  sloppy push meaning "up" must not be read as one.
+
+## Adding a child to an element destroys its text measurement
+
+`VisualElement.hierarchy.Add` contains this:
+
+```csharp
+if (m_Owner.layoutNode.UsesMeasure) { m_Owner.RemoveMeasureFunction(); }
+```
+
+Yoga only allows a measure function on a leaf node, so **any element that measures its own content
+stops doing so the moment it gains a child**. For a text-only `Button` or `Label` that means its
+auto width collapses to zero and the text wraps one character per line — a vertical stack of
+letters. It is restored when the last child is removed, so the damage is invisible in a diff and
+only shows while something is parented.
+
+This is why `SelectionHighlighter` parents its selection ring to the selected element's **parent**
+and positions it from `element.layout`, rather than filling the element itself with an
+`inset: 0` overlay. A parent always has at least one child already, so it cannot regress.
+
+Note `layout` is measured from the parent's border box while absolute `left`/`top` are measured
+from its padding box, so the ring subtracts the parent's border widths.
+
+## ListView rows are not always clickable
+
+Two lists sit side by side in the load-game menu and only one of them worked. `SaveList` calls
+`visualElement.RegisterCallback<ClickEvent>(...)` on each row it builds, so its rows are ordinary
+click candidates. `SettlementList` does not — it leaves selection entirely to the `ListView`, whose
+own pointer handling never registers a `ClickEvent` — so it offered nothing to aim at.
+
+The rule is therefore *fall-through*, not *type*: a `BaseVerticalCollectionView` becomes a single
+candidate only when nothing inside it already qualified. Lists whose rows are clickable keep
+working row by row; lists that are not become one candidate where up/down drives `selectedIndex`
+via `SetSelection`/`ScrollToItem`.
+
+Such a list **refuses the push at either end rather than clamping**. That refusal is what lets
+ordinary navigation carry the player back out of the list — clamping would trap them in it forever.
 
 ## Dropdown lists live outside the panel that opened them
 
