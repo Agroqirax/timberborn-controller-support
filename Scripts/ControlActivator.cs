@@ -28,7 +28,8 @@ namespace ControllerSupport
 				|| element is Slider
 				|| element is SliderInt
 				|| element is PreciseSlider
-				|| element is Dropdown;
+				|| element is Dropdown
+				|| element is TextField;
 		}
 
 		public static void Activate(VisualElement element)
@@ -52,6 +53,15 @@ namespace ControllerSupport
 				case Slider:
 				case SliderInt:
 				case PreciseSlider:
+					return;
+
+				// Focusing is what a click would do anyway for a text field, and it is also what
+				// TextElementInitializer is watching for: focusing blocks the rest of input processing
+				// so real typing (keyboard or the platform's on-screen keyboard) is not fought over by
+				// this mod's own stick/d-pad reads. GamepadNavigationInputProcessor keeps running
+				// through that via ILateUpdatableSingleton, purely to give B a way to blur back out.
+				case TextField textField:
+					textField.Focus();
 					return;
 
 				// A list row that has no click handler of its own - the settlement list's case - never

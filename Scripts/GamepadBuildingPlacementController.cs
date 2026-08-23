@@ -38,6 +38,7 @@ namespace ControllerSupport
 		private readonly ToolService _toolService;
 		private readonly PreviewPlacement _previewPlacement;
 		private readonly TerrainPicker _terrainPicker;
+		private readonly PanelTracker _panelTracker;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 
@@ -46,13 +47,15 @@ namespace ControllerSupport
 		private float _nextFailureLogTime;
 
 		public GamepadBuildingPlacementController(InputService inputService, CameraService cameraService,
-			ToolService toolService, PreviewPlacement previewPlacement, TerrainPicker terrainPicker)
+			ToolService toolService, PreviewPlacement previewPlacement, TerrainPicker terrainPicker,
+			PanelTracker panelTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
 			_previewPlacement = previewPlacement;
 			_terrainPicker = terrainPicker;
+			_panelTracker = panelTracker;
 		}
 
 		public void Load()
@@ -89,6 +92,21 @@ namespace ControllerSupport
 			if (gamepad == null || !(_toolService.ActiveTool is BlockObjectTool))
 			{
 				Deactivate();
+				return;
+			}
+
+			// A dialog raised mid-placement - not enough science points, confirm unlocking a
+			// building, entering a settlement name - stacks on top while the BlockObjectTool stays
+			// active underneath it, since none of these switch tools. Left alone, this kept feeding A
+			// to the world as a synthetic click and starved GamepadNavigationInputProcessor of the
+			// stick exactly the way it starves itself during real placement, so the dialog's own
+			// buttons were never reachable. Clearing published state (not a full Deactivate) hands the
+			// gamepad back to UI navigation for as long as the dialog is up, while keeping _active and
+			// _cursor intact so placement resumes exactly where it left off once it closes, rather than
+			// reseeding at screen centre.
+			if (_panelTracker.HasStackedPanel)
+			{
+				GamepadPlacementState.Clear();
 				return;
 			}
 

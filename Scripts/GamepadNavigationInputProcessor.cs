@@ -9,7 +9,8 @@ using UnityEngine.UIElements;
 
 namespace ControllerSupport
 {
-	internal class GamepadNavigationInputProcessor : ILoadableSingleton, IUnloadableSingleton, IInputProcessor
+	internal class GamepadNavigationInputProcessor : ILoadableSingleton, IUnloadableSingleton, IInputProcessor,
+		ILateUpdatableSingleton
 	{
 		private const float FailureLogInterval = 30f;
 		private const int SubSectionSettleFrames = 8;
@@ -19,6 +20,7 @@ namespace ControllerSupport
 		private const float MaxFrameTime = 0.2f;
 
 		private readonly InputService _inputService;
+		private readonly InputBlocker _inputBlocker;
 		private readonly PanelTracker _panelTracker;
 		private readonly DropdownTracker _dropdownTracker;
 		private readonly UISoundController _uiSoundController;
@@ -40,10 +42,11 @@ namespace ControllerSupport
 		private int _initialSelectionFrames;
 		private float _nextFailureLogTime;
 
-		public GamepadNavigationInputProcessor(InputService inputService, PanelTracker panelTracker,
-			DropdownTracker dropdownTracker, UISoundController uiSoundController)
+		public GamepadNavigationInputProcessor(InputService inputService, InputBlocker inputBlocker,
+			PanelTracker panelTracker, DropdownTracker dropdownTracker, UISoundController uiSoundController)
 		{
 			_inputService = inputService;
+			_inputBlocker = inputBlocker;
 			_panelTracker = panelTracker;
 			_dropdownTracker = dropdownTracker;
 			_uiSoundController = uiSoundController;
@@ -96,8 +99,25 @@ namespace ControllerSupport
 
 		public bool ProcessInput()
 		{
-			// A mod must never take the game down with it: this runs every frame and reaches into UI
-			// Toolkit internals that can throw when the tree is mid-rebuild.
+			return SafeProcessInputCore();
+		}
+
+		// Focusing a TextField blocks the whole regular input-processor chain - see the guard at the
+		// top of ProcessInputCore for why - so this is the only way B still reaches the game while the
+		// player is editing a name. LateUpdate runs after InputService.UpdateSingleton has decided
+		// whether it is blocked for the frame, so the two paths never both fire the same frame.
+		public void LateUpdateSingleton()
+		{
+			if (_inputBlocker.IsBlocked)
+			{
+				SafeProcessInputCore();
+			}
+		}
+
+		// A mod must never take the game down with it: this runs every frame and reaches into UI
+		// Toolkit internals that can throw when the tree is mid-rebuild.
+		private bool SafeProcessInputCore()
+		{
 			try
 			{
 				return ProcessInputCore();
@@ -114,6 +134,24 @@ namespace ControllerSupport
 			var gamepad = Gamepad.current;
 			if (gamepad == null)
 			{
+				return false;
+			}
+
+			// TextElementInitializer blocks all normal input processing for as long as a TextField has
+			// real UI Toolkit focus (see LateUpdateSingleton above for how this method still runs at
+			// all during that time). Typing itself goes through the keyboard/on-screen keyboard as
+			// normal - the only thing missing without this is a way back out, since B can't reach
+			// anything else while blocked either. Confirming or cancelling the dialog stays on its own
+			// buttons rather than teaching it to fire from the field: SetConfirmCancelActions treats a
+			// blur as a no-op unless InputService's real Confirm/Cancel key was actually pressed, so a
+			// plain Blur() here is always safe and never doubles as an accidental commit.
+			if (_selected is TextField focusedField && IsFocused(focusedField))
+			{
+				if (gamepad.buttonEast.wasPressedThisFrame)
+				{
+					focusedField.Blur();
+				}
+
 				return false;
 			}
 
@@ -211,11 +249,16 @@ namespace ControllerSupport
 			var restored = _memory.Restore(_scope, _candidates);
 
 			// With no history to go on: the bare HUD starts on the cursor tool rather than whatever
-			// happens to sit top-left, since that is the tool the player almost always wants next.
-			// Everywhere else, start at the top of the panel. Waiting for the player to push the stick
-			// first meant arriving in a scene with nothing highlighted while A would still press whatever
-			// the panel considers its default - the cursor was there, just invisible.
-			restored ??= BottomBarNavigation.DefaultTool(_candidates) ?? SpatialNavigator.First(_candidates);
+			// happens to sit top-left, since that is the tool the player almost always wants next. A
+			// dialog starts on whatever it names "ConfirmButton" - the same element keyboard Enter
+			// would trigger - so confirming a warning or a science-point unlock prompt needs nothing
+			// more than a tap of A. Everywhere else, start at the top of the panel. Waiting for the
+			// player to push the stick first meant arriving in a scene with nothing highlighted while A
+			// would still press whatever the panel considers its default - the cursor was there, just
+			// invisible.
+			restored ??= BottomBarNavigation.DefaultTool(_candidates)
+				?? DialogDefaultAction.Find(_candidates)
+				?? SpatialNavigator.First(_candidates);
 
 			if (restored != null)
 			{
@@ -273,7 +316,9 @@ namespace ControllerSupport
 			_initialSelectionFrames--;
 			RefreshCandidates();
 
-			var first = BottomBarNavigation.DefaultTool(_candidates) ?? SpatialNavigator.First(_candidates);
+			var first = BottomBarNavigation.DefaultTool(_candidates)
+				?? DialogDefaultAction.Find(_candidates)
+				?? SpatialNavigator.First(_candidates);
 			if (first == null)
 			{
 				return;
@@ -585,6 +630,11 @@ namespace ControllerSupport
 		{
 			_highlighter.Clear();
 			_selected = null;
+		}
+
+		private static bool IsFocused(VisualElement element)
+		{
+			return element.panel != null && element.panel.focusController.focusedElement == element;
 		}
 
 		// Throttled rather than latched. The old build silenced itself permanently after one failure,
