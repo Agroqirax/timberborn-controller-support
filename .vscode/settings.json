@@ -1,0 +1,25 @@
+{
+  "files.exclude": {
+    "**/*.meta": true
+  },
+  "files.associations": {
+    "**/*.asmdef": "json",
+    "**/*.meta": "yaml",
+    "**/*.uxml": "xml",
+    "**/*.uss": "css"
+  },
+  "json.schemas": [
+    {
+      "fileMatch": ["/manifest.json"],
+      "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/manifest.schema.json"
+    },
+    {
+      "fileMatch": ["/workshop_data.json"],
+      "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/workshop_data.schema.json"
+    },
+    {
+      "fileMatch": ["*.asmdef"],
+      "url": "https://www.schemastore.org/asmdef"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "ControllerSupport",
+  "rootNamespace": "",
+  "references": [
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [
+    "Bindito.Core.dll",
+    "Timberborn.SingletonSystem.dll",
+    "Timberborn.InputSystem.dll",
+    "Timberborn.CoreUI.dll",
+    "Timberborn.UISound.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

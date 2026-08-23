@@ -1,0 +1,40 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://zed.dev/docs/configuring-zed#settings-files
+{
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/.jj",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/.classpath",
+    "**/.settings",
+    "**/*.meta"
+  ],
+  "lsp": {
+    "json-language-server": {
+      "settings": {
+        "json": {
+          "schemas": [
+            {
+              "fileMatch": ["/manifest.json"],
+              "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/manifest.schema.json"
+            },
+            {
+              "fileMatch": ["/workshop_data.json"],
+              "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/workshop_data.schema.json"
+            },
+            {
+              "fileMatch": ["*.asmdef"],
+              "url": "https://www.schemastore.org/asmdef"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

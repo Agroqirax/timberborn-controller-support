@@ -1,0 +1,101 @@
+name: Distribute
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get release artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "*.zip" \
+            --output "mod-${VERSION}.zip"
+
+      - name: Extract artifact for Steam
+        run: |
+          mkdir -p staging
+          unzip "mod-${VERSION}.zip" -d staging
+
+      - name: Generate bbcode changelog
+        id: changelog_bbcode
+        env:
+          CHANGELOG: ${{ github.event.release.body }}
+        run: |
+          result=$(echo "$CHANGELOG" | node .github/scripts/md-to-bbcode.js)
+          echo "bbcode<<EOF" >> $GITHUB_OUTPUT
+          echo "$result" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Mod.io release
+        id: modio
+        uses: nickelc/upload-to-modio@v3.0.0
+        with:
+          token: ${{ secrets.MODIO_TOKEN }}
+          game: ${{ vars.MODIO_GAME_ID }}
+          mod: ${{ vars.MODIO_MOD_ID }}
+          version: ${{ env.VERSION }}
+          changelog: ${{ github.event.release.body }}
+          path: "mod-${{ env.VERSION }}.zip"
+
+      - name: Create Steam Workshop release
+        id: steam
+        uses: m00nl1ght-dev/steam-workshop-deploy@v4
+        with:
+          username: ${{ secrets.STEAM_USERNAME }}
+          configVdf: ${{ secrets.STEAM_CONFIG_VDF }}
+          path: staging
+          appId: ${{ vars.STEAM_APPID }}
+          publishedFileId: ${{ vars.STEAM_FILE_ID }}
+          changeNote: ${{ steps.changelog_bbcode.outputs.bbcode }}
+
+      - name: Write job summary
+        if: always()
+        run: |
+          STEAM_URL="https://steamcommunity.com/sharedfiles/filedetails/?id=${{ vars.STEAM_FILE_ID }}"
+          GH_RELEASE_URL="${{ github.event.release.html_url }}"
+
+          modio_outcome="${{ steps.modio.outcome }}"
+          steam_outcome="${{ steps.steam.outcome }}"
+          modio_url="${{ steps.modio.outputs.url }}"
+
+          format_status() {
+            case "$1" in
+              success) echo "✅ Deployed" ;;
+              failure) echo "❌ Failed" ;;
+              cancelled) echo "⚠️ Cancelled" ;;
+              *) echo "⏭️ Skipped" ;;
+            esac
+          }
+
+          format_link() {
+            local outcome="$1" label="$2" url="$3"
+            if [ "$outcome" = "success" ] && [ -n "$url" ]; then
+              echo "[$label]($url)"
+            else
+              echo "—"
+            fi
+          }
+
+          echo "## 🚀 Distribute Summary for v${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | Status | Link |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub Release | ✅ Published | [v${{ env.VERSION }}]($GH_RELEASE_URL) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mod.io | $(format_status $modio_outcome) | $(format_link $modio_outcome "Download" "$modio_url") |" >> $GITHUB_STEP_SUMMARY
+          echo "| Steam Workshop | $(format_status $steam_outcome) | $(format_link $steam_outcome "Workshop Page" "$STEAM_URL") |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Changelog" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${{ github.event.release.body }}" >> $GITHUB_STEP_SUMMARY
