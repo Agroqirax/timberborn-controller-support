@@ -41,6 +41,25 @@ namespace ControllerSupport
 			return null;
 		}
 
+		// Where the cursor should start out on the bare HUD: the leftmost category in the always-visible
+		// row, which is the cursor tool in the Game scene. MainSection only shows up among the
+		// candidates at all when the scope is the bare HUD - a stacked panel's own scope never contains
+		// it - so this naturally has nothing to say in a menu, a dialog or a dropdown, and needs no
+		// scene check to stay out of their way.
+		public static VisualElement DefaultTool(List<VisualElement> candidates)
+		{
+			foreach (var candidate in candidates)
+			{
+				var mainSection = AncestorNamed(candidate, MainSectionName);
+				if (mainSection != null)
+				{
+					return Leftmost(candidates, mainSection);
+				}
+			}
+
+			return null;
+		}
+
 		// The tools a player reaches for most sit at the left of the row, so that is where to land.
 		public static VisualElement Leftmost(List<VisualElement> candidates, VisualElement subSection)
 		{

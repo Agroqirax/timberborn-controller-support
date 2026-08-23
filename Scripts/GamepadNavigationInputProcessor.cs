@@ -33,7 +33,10 @@ namespace ControllerSupport
 		private Vector2 _lastSelectionCentre;
 		private Vector2 _highlightCentre;
 		private VisualElement _pendingSubSection;
+		private VisualElement _pendingSubSectionOwner;
 		private int _pendingSubSectionFrames;
+		private VisualElement _activeToolGroupRow;
+		private VisualElement _activeToolGroupOwner;
 		private int _initialSelectionFrames;
 		private float _nextFailureLogTime;
 
@@ -67,8 +70,21 @@ namespace ControllerSupport
 		// to notice we had been buried.
 		private void OnPanelChanged()
 		{
+			// This fires synchronously off PanelStack's own show/hide event, ahead of the next
+			// ProcessInputCore - which is also where EnterScope normally banks the outgoing scope's
+			// selection before moving on. Wiping _scope below without remembering first meant EnterScope
+			// always found it already null and never had anything to save: closing a panel would put the
+			// player back in the scope behind it with no memory of where they had been in it.
+			if (_scope != null && _selected != null)
+			{
+				_memory.Remember(_scope, _selected, _lastSelectionCentre);
+			}
+
 			ClearSelection();
 			_pendingSubSection = null;
+			_pendingSubSectionOwner = null;
+			_activeToolGroupRow = null;
+			_activeToolGroupOwner = null;
 			_initialSelectionFrames = 0;
 			_candidates.Clear();
 			_scope = null;
@@ -116,6 +132,7 @@ namespace ControllerSupport
 			}
 
 			RefreshHighlightIfMoved();
+			TryRecoverFromClosedToolGroup();
 			TryInitialSelection();
 			TrySubSectionJump();
 			Scroll(gamepad);
@@ -159,6 +176,9 @@ namespace ControllerSupport
 
 			ClearSelection();
 			_pendingSubSection = null;
+			_pendingSubSectionOwner = null;
+			_activeToolGroupRow = null;
+			_activeToolGroupOwner = null;
 			_scope = scope;
 
 			// The new scope may not have been laid out yet, in which case there are no candidates to
@@ -167,10 +187,12 @@ namespace ControllerSupport
 
 			var restored = _memory.Restore(_scope, _candidates);
 
-			// With no history to go on, start at the top of the panel. Waiting for the player to push the
-			// stick first meant arriving in a scene with nothing highlighted while A would still press
-			// whatever the panel considers its default - the cursor was there, just invisible.
-			restored ??= SpatialNavigator.First(_candidates);
+			// With no history to go on: the bare HUD starts on the cursor tool rather than whatever
+			// happens to sit top-left, since that is the tool the player almost always wants next.
+			// Everywhere else, start at the top of the panel. Waiting for the player to push the stick
+			// first meant arriving in a scene with nothing highlighted while A would still press whatever
+			// the panel considers its default - the cursor was there, just invisible.
+			restored ??= BottomBarNavigation.DefaultTool(_candidates) ?? SpatialNavigator.First(_candidates);
 
 			if (restored != null)
 			{
@@ -192,9 +214,9 @@ namespace ControllerSupport
 				return;
 			}
 
-			// A push can land on a control that would rather absorb it: sideways on a slider changes its
-			// value, up or down on a plain ListView moves its selected row. Re-applying the highlight afterwards matters because adjusting moves the
-			// dragger, which changes what sits under the control's centre.
+			// A push can land on a control that would rather absorb it than be left, e.g. sideways on a
+			// slider changes its value. Re-applying the highlight afterwards matters because adjusting
+			// moves the dragger, which changes what sits under the control's centre.
 			if (_selected != null && ControlActivator.TryAdjust(_selected, direction))
 			{
 				_highlighter.Apply(_selected);
@@ -228,7 +250,7 @@ namespace ControllerSupport
 			_initialSelectionFrames--;
 			RefreshCandidates();
 
-			var first = SpatialNavigator.First(_candidates);
+			var first = BottomBarNavigation.DefaultTool(_candidates) ?? SpatialNavigator.First(_candidates);
 			if (first == null)
 			{
 				return;
@@ -311,6 +333,7 @@ namespace ControllerSupport
 			if (_pendingSubSectionFrames-- <= 0)
 			{
 				_pendingSubSection = null;
+				_pendingSubSectionOwner = null;
 				return;
 			}
 
@@ -322,9 +345,74 @@ namespace ControllerSupport
 				return;
 			}
 
+			// _pendingSubSection is the bottom bar's one shared row container - every category's tools
+			// live in it, only the open category's showing. What TryRecoverFromClosedToolGroup needs to
+			// watch is this category's own slice of it, since that is the part the game actually toggles
+			// off - so pin down the direct child of the shared container that owns the row we just
+			// landed in, not the shared container itself, which never itself goes display:none.
+			_activeToolGroupRow = ChildOf(_pendingSubSection, leftmost);
+			_activeToolGroupOwner = _pendingSubSectionOwner;
+
 			_pendingSubSection = null;
+			_pendingSubSectionOwner = null;
 			Select(leftmost);
 			ScrollIntoView(leftmost);
+		}
+
+		// Confirming a category button leaves its row selected. If the row then closes for any reason
+		// other than the player picking a different category - B, placing a building, switching tools
+		// by keyboard - nothing else notices: the row's ToggleDisplayStyle(false) is the game's own
+		// business, not an event this mod observes. Left alone, the next confirm press would activate a
+		// button that is no longer part of the tree the player can see, and Move would only notice once
+		// the stick was pushed. Checking every frame is cheap here - a couple of field reads, not the
+		// candidate walk RefreshCandidates does - unlike making RefreshCandidates itself run unconditionally.
+		private void TryRecoverFromClosedToolGroup()
+		{
+			if (_activeToolGroupRow == null)
+			{
+				return;
+			}
+
+			if (_activeToolGroupRow.resolvedStyle.display != DisplayStyle.None)
+			{
+				return;
+			}
+
+			if (_selected != null && _activeToolGroupOwner != null && _activeToolGroupOwner.panel != null
+				&& IsDescendantOf(_selected, _activeToolGroupRow))
+			{
+				Select(_activeToolGroupOwner);
+				ScrollIntoView(_activeToolGroupOwner);
+			}
+
+			_activeToolGroupRow = null;
+			_activeToolGroupOwner = null;
+		}
+
+		private static VisualElement ChildOf(VisualElement ancestor, VisualElement descendant)
+		{
+			for (var current = descendant; current != null; current = current.hierarchy.parent)
+			{
+				if (current.hierarchy.parent == ancestor)
+				{
+					return current;
+				}
+			}
+
+			return null;
+		}
+
+		private static bool IsDescendantOf(VisualElement element, VisualElement ancestor)
+		{
+			for (var current = element; current != null; current = current.hierarchy.parent)
+			{
+				if (ReferenceEquals(current, ancestor))
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		// Rebuilt on every step rather than cached. A step happens at most a handful of times a
@@ -381,6 +469,7 @@ namespace ControllerSupport
 			if (subSection != null)
 			{
 				_pendingSubSection = subSection;
+				_pendingSubSectionOwner = _selected;
 				_pendingSubSectionFrames = SubSectionSettleFrames;
 			}
 

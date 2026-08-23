@@ -357,6 +357,62 @@ close the dropdown itself first.
    Re-apply the highlight whenever the selected element's `worldBound` centre has moved instead of
    guessing at a frame count: it self-corrects for deferred scrolls and reflows, and settles.
 
+## OnPanelChanged used to erase the selection it should have remembered
+
+`PanelTracker.PanelChanged` fires synchronously off `PanelShownEvent`/`PanelHiddenEvent` - inside the
+same call that opened or closed the panel, well before the next `ProcessInputCore`. Its handler used
+to jump straight to clearing `_scope`, on the assumption that `EnterScope` would bank the outgoing
+scope's selection into `SelectionMemory` the next time it ran. But `EnterScope` only remembers when
+`_scope != null`, and by the time it next ran, `OnPanelChanged` had already set `_scope = null` -
+every real panel open or close skipped the remember entirely. Closing a menu never got back to where
+you had been, no matter how deep the memory's capacity or how careful the restore logic was, because
+nothing was ever banked to restore.
+
+This didn't affect dropdowns, which don't raise `PanelShownEvent`/`PanelHiddenEvent` at all - their
+scope only changes inside `ProcessInputCore`, where `EnterScope` still sees the real outgoing
+`_scope` and remembers correctly. It only ever broke the case that mattered most: leaving a real menu
+and coming back to whatever was behind it.
+
+The fix is to remember from inside `OnPanelChanged` itself, before it clears anything - the last
+point where the outgoing scope and selection are both still valid.
+
+## The bare HUD's default selection is the bottom bar's leftmost tool, not top-left
+
+`SpatialNavigator.First` picks the top-left of the biggest on-screen cluster, which is a reasonable
+guess for a menu but not for the Game or MapEditor HUD: the player's most common next action is
+picking up the tool they already had out, which sits at the *left of the bottom bar*, nowhere near
+the top of the screen.
+
+`BottomBarNavigation.DefaultTool` looks for a `MainSection` ancestor among the current candidates and
+returns its leftmost child if found, falling through to `SpatialNavigator.First` otherwise. It needs
+no scene check to stay out of menus and dialogs: a stacked panel's own scope element never contains
+the HUD's `MainSection` in the first place, so the lookup simply comes back empty everywhere but the
+bare HUD. Wired in as a fallback ahead of `SpatialNavigator.First`, after `SelectionMemory.Restore`,
+in both `EnterScope` and `TryInitialSelection` - real memory of where the player actually was still
+wins over this default.
+
+## A closed tool group row leaves the selection pointing at nothing
+
+Confirming a bottom bar category (`ToolGroupButton`) calls `ToolGroupService.EnterToolGroup`, which
+shows that category's row via `ToolButtonsElement.ToggleDisplayStyle(true)` - `TrySubSectionJump`
+jumps the selection onto its leftmost tool. But the row can close again through paths this mod never
+sees: pressing B falls through to `GamepadToolCancelInputProcessor`, which calls
+`ToolGroupService.ExitToolGroup()` directly; placing a building can close it too. Either way
+`ToolButtonsElement.ToggleDisplayStyle(false)` runs entirely inside the game's own event handler
+(`ToolGroupButton.OnToolGroupExited`), and nothing tells this mod it happened. Left alone, `_selected`
+kept pointing at a tool button sitting in a hidden row - confirming it dispatched a click nothing could
+receive, and `Move` would only notice once the stick was actually pushed, since `RefreshCandidates`
+only runs on a step.
+
+The fix tracks two things across the jump into a row: `_activeToolGroupRow`, the specific
+`ToolButtonsElement` a landed-in tool belongs to (found as the direct child of the shared `SubSection`
+container that contains it - not `SubSection` itself, which never goes `display: none`, only the
+per-category children inside it do), and `_activeToolGroupOwner`, the category button that opened it.
+`TryRecoverFromClosedToolGroup` reads `_activeToolGroupRow.resolvedStyle.display` every frame - one
+field read, not a candidate walk - and the moment it goes `None` while the selection is still inside
+that row, sends the player back to the category button that opened it, exactly where B would otherwise
+have left them stranded.
+
 ## Environment note
 
 The dev machine's controller is a Steam Controller where Steam Input can't be disabled. It only
