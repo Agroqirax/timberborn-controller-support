@@ -1,0 +1,174 @@
+using System;
+using Timberborn.BlockObjectTools;
+using Timberborn.CameraSystem;
+using Timberborn.InputSystem;
+using Timberborn.SingletonSystem;
+using Timberborn.TerrainQueryingSystem;
+using Timberborn.ToolSystem;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace ControllerSupport
+{
+	// Drives building placement with the gamepad: the left stick/d-pad nudges the ghost one voxel
+	// at a time, A places (held while moving, drags a line/path the same way a mouse-drag would),
+	// LB/RB rotate and Y flips.
+	//
+	// There is no public seam into AreaSelectionController - the class that actually owns ghost
+	// preview, drag and placement for every BlockObjectTool - so this never talks to it directly.
+	// Instead it tracks its own grid cursor and publishes it, plus synthetic button edges, through
+	// GamepadPlacementState for CameraServicePlacementPatch and InputServicePlacementPatch to hand
+	// back wherever the game reads a screen-derived ray or mouse button state. Everything downstream
+	// of that - preview, validation, placement - runs completely unmodified.
+	//
+	// Must be a priority processor, not a regular one: BlockObjectTool is a regular processor too,
+	// registered later (when the tool is entered) and so run earlier than this in the reverse-order
+	// regular chain. On the exact frame MainMouseButtonUp is true, AreaSelectionController commits
+	// and returns true, which stops the chain before this ever gets a turn to reset that flag back
+	// to false - MainMouseButtonUp then reads true forever, AreaSelectionController nulls its ray and
+	// returns true on every subsequent frame too, and nothing downstream (including B-cancel) ever
+	// runs again. A priority processor always refreshes the state before anything can read it, every
+	// frame, with no way for another processor to starve it - the one guarantee this cannot give up.
+	internal class GamepadBuildingPlacementController : ILoadableSingleton, IUnloadableSingleton, IPriorityInputProcessor
+	{
+		private const float FailureLogInterval = 30f;
+
+		private readonly InputService _inputService;
+		private readonly CameraService _cameraService;
+		private readonly ToolService _toolService;
+		private readonly PreviewPlacement _previewPlacement;
+		private readonly TerrainPicker _terrainPicker;
+
+		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
+
+		private bool _active;
+		private Vector3Int _cursor;
+		private float _nextFailureLogTime;
+
+		public GamepadBuildingPlacementController(InputService inputService, CameraService cameraService,
+			ToolService toolService, PreviewPlacement previewPlacement, TerrainPicker terrainPicker)
+		{
+			_inputService = inputService;
+			_cameraService = cameraService;
+			_toolService = toolService;
+			_previewPlacement = previewPlacement;
+			_terrainPicker = terrainPicker;
+		}
+
+		public void Load()
+		{
+			_inputService.AddInputProcessor(this);
+		}
+
+		// InputService has no way to remove an IPriorityInputProcessor once added - only the plain
+		// IInputProcessor overload of RemoveInputProcessor exists. That is a real engine gap, but the
+		// alternative (a regular processor) can be starved by exactly the deadlock described above,
+		// which is worse: a stale registration surviving a scene reload is at most cosmetic jitter
+		// from two writers, never a hard freeze. Clearing the shared state still matters so nothing
+		// outlives the tool that was driving it.
+		public void Unload()
+		{
+			GamepadPlacementState.Clear();
+		}
+
+		public void ProcessInput()
+		{
+			try
+			{
+				Update();
+			}
+			catch (Exception e)
+			{
+				ReportFailure(e);
+			}
+		}
+
+		private void Update()
+		{
+			var gamepad = Gamepad.current;
+			if (gamepad == null || !(_toolService.ActiveTool is BlockObjectTool))
+			{
+				Deactivate();
+				return;
+			}
+
+			if (!_active)
+			{
+				Activate();
+			}
+
+			var step = _stepReader.ReadStep(gamepad, _cameraService.HorizontalAngle);
+			if (step != Vector2Int.zero)
+			{
+				_cursor += new Vector3Int(step.x, step.y, 0);
+			}
+
+			GamepadPlacementState.Active = true;
+			GamepadPlacementState.GridCursor = _cursor;
+			GamepadPlacementState.MainMouseButtonDown = gamepad.buttonSouth.wasPressedThisFrame;
+			GamepadPlacementState.MainMouseButtonHeld = gamepad.buttonSouth.isPressed;
+			GamepadPlacementState.MainMouseButtonUp = gamepad.buttonSouth.wasReleasedThisFrame;
+
+			if (gamepad.leftShoulder.wasPressedThisFrame)
+			{
+				_previewPlacement.RotateCounterclockwise();
+			}
+
+			if (gamepad.rightShoulder.wasPressedThisFrame)
+			{
+				_previewPlacement.RotateClockwise();
+			}
+
+			if (gamepad.buttonNorth.wasPressedThisFrame)
+			{
+				_previewPlacement.Flip();
+			}
+		}
+
+		private void Activate()
+		{
+			_active = true;
+			_stepReader.Reset();
+
+			// The one and only place a screen point is turned into a grid cell: seed the cursor at
+			// whatever screen-centre would show a mouse user. GamepadPlacementState.Active is still
+			// false at this point, so this genuinely goes through the camera rather than looping back
+			// into CameraServicePlacementPatch. Every frame after this one is injected directly, with
+			// no camera involved at all.
+			//
+			// PickTerrainCoordinates walks the ray voxel by voxel until it hits the real ground - the
+			// same way a mouse pick works - rather than intersecting a fixed height plane the way
+			// FindCoordinatesOnLevelInMap does. That matters because MaxVisibleLevel can sit well above
+			// the actual terrain the camera is looking at: intersecting a plane that high pulls the
+			// result back towards the camera's own position rather than where it's actually looking,
+			// which is what put the seed near the bottom of the screen instead of dead centre.
+			var screenCentre = new Vector2(Screen.width / 2f, Screen.height / 2f);
+			var ray = _cameraService.ScreenPointToRayInGridSpace(screenCentre);
+			var picked = _terrainPicker.PickTerrainCoordinates(ray);
+			_cursor = picked?.Coordinates ?? Vector3Int.zero;
+		}
+
+		private void Deactivate()
+		{
+			_active = false;
+			GamepadPlacementState.Clear();
+		}
+
+		private void ReportFailure(Exception e)
+		{
+			// Always clear, not just when the log actually fires - otherwise a recurring failure
+			// leaves the ghost frozen on stale state for up to FailureLogInterval seconds instead of
+			// cleanly standing down.
+			GamepadPlacementState.Clear();
+
+			var now = Time.unscaledTime;
+			if (now < _nextFailureLogTime)
+			{
+				return;
+			}
+
+			_nextFailureLogTime = now + FailureLogInterval;
+			Debug.LogError($"[ControllerSupport] Building placement failed: {e}");
+		}
+	}
+}

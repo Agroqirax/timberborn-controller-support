@@ -4,5 +4,9 @@
   "Id": "Agroqirax.ControllerSupport",
   "MinimumGameVersion": "1.1.2.0",
   "Description": "Support controllers",
-  "RequiredMods": []
+  "RequiredMods": [
+    {
+      "Id": "Harmony"
+    }
+  ]
 }

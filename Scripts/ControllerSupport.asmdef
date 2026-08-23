@@ -16,7 +16,13 @@
         "Timberborn.UISound.dll",
         "Timberborn.DropdownSystem.dll",
         "Timberborn.CameraSystem.dll",
-        "Timberborn.ToolSystem.dll"
+        "Timberborn.ToolSystem.dll",
+        "0Harmony.dll",
+        "Timberborn.ModManagerScene.dll",
+        "Timberborn.BlockObjectTools.dll",
+        "Timberborn.Coordinates.dll",
+        "Timberborn.TerrainQueryingSystem.dll",
+        "Timberborn.LevelVisibilitySystem.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

@@ -117,6 +117,29 @@ namespace ControllerSupport
 				return false;
 			}
 
+			// While a building is being placed, the stick and d-pad move the ghost instead of the UI -
+			// there is nothing to navigate to that matters more than where the building is going. The
+			// bare HUD would otherwise still count as a scope below and keep stealing the stick to walk
+			// the bottom bar out from under the player's thumb.
+			//
+			// Banking the selection into memory first, exactly like EnterScope does for a real scope
+			// change, is what lets B during placement land back on the specific building button rather
+			// than falling through to BottomBarNavigation.DefaultTool - without it there is nothing
+			// recorded for this scope to restore once the tool group row reappears. Clearing _scope too
+			// means the frame placement ends this re-enters fresh via EnterScope below rather than
+			// sitting with nothing highlighted until the next push.
+			if (GamepadPlacementState.Active)
+			{
+				if (_scope != null && _selected != null)
+				{
+					_memory.Remember(_scope, _selected, _lastSelectionCentre);
+				}
+
+				ClearSelection();
+				_scope = null;
+				return false;
+			}
+
 			// An open dropdown list owns navigation outright: it lives in its own UIDocument root,
 			// and nothing behind it should be reachable until it closes.
 			var scope = _dropdownTracker.Scope ?? _panelTracker.TopElement;
