@@ -239,13 +239,29 @@ Two lists sit side by side in the load-game menu and only one of them worked. `S
 click candidates. `SettlementList` does not — it leaves selection entirely to the `ListView`, whose
 own pointer handling never registers a `ClickEvent` — so it offered nothing to aim at.
 
-The rule is therefore *fall-through*, not *type*: a `BaseVerticalCollectionView` becomes a single
-candidate only when nothing inside it already qualified. Lists whose rows are clickable keep
-working row by row; lists that are not become one candidate where up/down drives `selectedIndex`
-via `SetSelection`/`ScrollToItem`.
+The rule is therefore *fall-through*, not *type*: a `BaseVerticalCollectionView` becomes a source of
+row candidates only when nothing inside it already qualified. Either way every realised row
+(`GetRootElementForIndex`, `NavigationCandidates.CollectRows`) ends up as its own candidate, click
+handler or not — a list is never a single candidate spanning every row.
 
-Such a list **refuses the push at either end rather than clamping**. That refusal is what lets
-ordinary navigation carry the player back out of the list — clamping would trap them in it forever.
+That used to be different: a list with no per-row click handler was one candidate, and up/down drove
+its `selectedIndex` directly, refusing the push at either end so the player could still leave.
+`ModUploaderBox`'s local-mods list broke that: its Upload button sits *below* the list, so the
+refusal-at-the-end rule meant the only mod you could ever upload was whichever one you happened to be
+on when you finally hit the last row and the push escaped downward. Per-row candidates fix it by
+letting ordinary spatial navigation leave from wherever the player currently is, same as it already
+did for `SaveList`.
+
+Selection is driven by confirm, not by arrival. An earlier version of this called
+`ControlActivator.SyncListSelection` from every selection change, which made every list preview as
+the cursor moved over it - matching what `SettlementList` always did, but at the cost of the same
+problem row candidates had just fixed: whatever the cursor was over when the player reached the
+Upload button is what got uploaded, since moving *is* selecting. The user chose consistency over
+that one preview: confirm is now the only thing that changes a `BaseVerticalCollectionView`'s
+`selectedIndex`. `ControlActivator.Activate`'s default case calls `SyncListSelection` before
+dispatching the synthesised click, so a row with no click handler of its own (`SettlementList`) gets
+selected by hand, and one that does (`SaveList`) gets it as an explicit step rather than a side
+effect of a click its own handler ignores anyway.
 
 ## Dropdown lists live outside the panel that opened them
 

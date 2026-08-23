@@ -67,12 +67,17 @@ namespace ControllerSupport
 			// A ListView whose rows are not independently clickable. The save list registers a ClickEvent
 			// per row and so is already covered above; the settlement list next to it does not - it leaves
 			// selection entirely to the ListView - so without this it offered nothing to aim at at all.
-			// Falling through to here rather than treating every collection view as a leaf keeps the lists
-			// that do work working, and their rows individually selectable.
-			if (element is BaseVerticalCollectionView && IsBigEnough(element))
+			//
+			// Each realised row becomes its own candidate rather than the list as a whole. A single
+			// candidate spanning the whole list has to intercept every up/down push to drive selectedIndex,
+			// which only lets the player leave from the top or bottom row - fine for a list that is the
+			// whole point of the panel, wrong for one like the mod uploader's, where the button the player
+			// actually wants sits right below it and was only reachable past the last mod. Row-level
+			// candidates let ordinary spatial navigation leave from wherever the player currently is, the
+			// same way it already does for the save list.
+			if (element is BaseVerticalCollectionView collectionView && IsBigEnough(element))
 			{
-				into.Add(element);
-				return true;
+				return CollectRows(collectionView, into);
 			}
 
 			// Anything that registered a ClickEvent callback counts too. That is what brings list
@@ -85,6 +90,32 @@ namespace ControllerSupport
 			}
 
 			return false;
+		}
+
+		// Only the rows the ListView has actually realised come back non-null - virtualisation keeps
+		// off-screen ones out of the tree entirely. That is exactly what is wanted: as the player
+		// scrolls, newly realised rows join the candidate list on the next collect the same way any
+		// other rebuilt UI does.
+		private static bool CollectRows(BaseVerticalCollectionView collectionView, List<VisualElement> into)
+		{
+			var source = collectionView.itemsSource;
+			if (source == null)
+			{
+				return false;
+			}
+
+			var found = false;
+			for (var i = 0; i < source.Count; i++)
+			{
+				var row = collectionView.GetRootElementForIndex(i);
+				if (row != null && IsBigEnough(row))
+				{
+					into.Add(row);
+					found = true;
+				}
+			}
+
+			return found;
 		}
 
 		// Controls that duplicate an action already reachable from a bigger, easier target next to

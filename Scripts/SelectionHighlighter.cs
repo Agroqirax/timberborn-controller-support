@@ -65,7 +65,7 @@ namespace ControllerSupport
 				SetHighlighted(highlighted, true);
 			}
 
-			UpdateRing(ControlActivator.RingTarget(element));
+			UpdateRing(element);
 		}
 
 		// Safe to call when the elements have already been detached from the panel, which is the

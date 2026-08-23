@@ -48,18 +48,18 @@ namespace ControllerSupport
 					Click(SelectionButton(dropdown));
 					return;
 
-				// Selecting a row already fired the list's selectionChanged on the way here, which is the
-				// only thing the game listens for. A press has nothing left to do.
-				case BaseVerticalCollectionView:
-					return;
-
 				// Pressing a slider should do nothing rather than jump its value; left/right adjusts.
 				case Slider:
 				case SliderInt:
 				case PreciseSlider:
 					return;
 
+				// A list row that has no click handler of its own - the settlement list's case - never
+				// tells its ListView anything happened, click or not. Confirm is the only signal it gets,
+				// so this is the one place selection has to be driven by hand rather than left to fire as
+				// a side effect of the click below.
 				default:
+					SyncListSelection(element);
 					Click(element);
 					return;
 			}
@@ -69,14 +69,6 @@ namespace ControllerSupport
 		// false to let the push fall through to normal navigation.
 		public static bool TryAdjust(VisualElement element, Vector2Int direction)
 		{
-			// A ListView with no per-row click handler is one candidate covering a whole list, so up and
-			// down have to drive its selected index. Crucially it refuses the push at either end instead of
-			// clamping: that is what lets ordinary navigation carry the player back out of the list.
-			if (element is BaseVerticalCollectionView collectionView)
-			{
-				return direction.x == 0 && TryMoveSelection(collectionView, direction.y);
-			}
-
 			// Everything below is a sideways gesture, and only a pure one - a diagonal should navigate.
 			if (direction.x == 0 || direction.y != 0)
 			{
@@ -119,24 +111,59 @@ namespace ControllerSupport
 			}
 		}
 
-		private static bool TryMoveSelection(BaseVerticalCollectionView view, int step)
+		// Every list row is its own navigation candidate now (see NavigationCandidates.CollectRows), but
+		// none of them fire selection just by being aimed at - that used to auto-select whatever the
+		// cursor passed over, which was fine for a list that only ever previews (SettlementList) and
+		// actively wrong for one that gates an action next to it (ModUploaderBox's Upload button,
+		// bound to whichever row happened to be selected when the player finally reached it). Confirm
+		// is the only thing that should ever change what is selected.
+		private static void SyncListSelection(VisualElement element)
 		{
-			var source = view.itemsSource;
-			if (step == 0 || source == null || source.Count == 0)
+			if (!TryFindRow(element, out var view, out var index) || view.selectedIndex == index)
 			{
+				return;
+			}
+
+			view.SetSelection(index);
+		}
+
+		// Rows carry no back-reference to their list or index, so recover both by walking up to the
+		// owning ListView and matching the element against each realised row. Lists here are short
+		// enough that the linear scan costs nothing next to a frame.
+		private static bool TryFindRow(VisualElement element, out BaseVerticalCollectionView view, out int index)
+		{
+			view = null;
+			index = -1;
+
+			for (var parent = element.hierarchy.parent; parent != null; parent = parent.hierarchy.parent)
+			{
+				if (parent is BaseVerticalCollectionView collectionView)
+				{
+					view = collectionView;
+					break;
+				}
+			}
+
+			var source = view?.itemsSource;
+			if (source == null)
+			{
+				view = null;
 				return false;
 			}
 
-			// Nothing selected yet: any push should land on the first row rather than doing nothing.
-			var next = view.selectedIndex < 0 ? 0 : view.selectedIndex + step;
-			if (next < 0 || next >= source.Count)
+			for (var i = 0; i < source.Count; i++)
 			{
-				return false;
+				if (!ReferenceEquals(view.GetRootElementForIndex(i), element))
+				{
+					continue;
+				}
+
+				index = i;
+				return true;
 			}
 
-			view.SetSelection(next);
-			view.ScrollToItem(next);
-			return true;
+			view = null;
+			return false;
 		}
 
 		private static bool TryAdjustSlider(Slider slider, int delta)
@@ -169,11 +196,6 @@ namespace ControllerSupport
 		{
 			switch (element)
 			{
-				// The list is one candidate but the player is aiming at a row, so light the row.
-				case BaseVerticalCollectionView collectionView:
-					Add(into, SelectedRow(collectionView));
-					return;
-
 				// The checkmark is the part that visibly reacts, and it sits inside the toggle's input
 				// wrapper. Naming it beats picking at the toggle's centre, which fails whenever
 				// anything overlaps the row - the last row of a scrolling settings page being the case
@@ -213,26 +235,6 @@ namespace ControllerSupport
 			Add(into, slider.Q("unity-drag-container"));
 			Add(into, slider.Q("unity-tracker"));
 			Add(into, slider.Q("unity-dragger"));
-		}
-
-		// Where the selection ring should be drawn. Normally the control itself, but a list is one
-		// candidate spanning many rows and the ring belongs on the row the player is on.
-		public static VisualElement RingTarget(VisualElement element)
-		{
-			if (element is BaseVerticalCollectionView collectionView)
-			{
-				return SelectedRow(collectionView) ?? element;
-			}
-
-			return element;
-		}
-
-		// Null while the row is scrolled out of the virtualised window, which is a legitimate state -
-		// the caller falls back to the list itself.
-		private static VisualElement SelectedRow(BaseVerticalCollectionView view)
-		{
-			var index = view.selectedIndex;
-			return index < 0 ? null : view.GetRootElementForIndex(index);
 		}
 
 		private static void Add(List<VisualElement> into, VisualElement element)
