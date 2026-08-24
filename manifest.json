@@ -1,9 +1,9 @@
 {
   "Name": "Controller Support",
-  "Version": "1.1.2.0",
+  "Version": "1.1.2.0.1",
   "Id": "Agroqirax.ControllerSupport",
   "MinimumGameVersion": "1.1.2.0",
-  "Description": "Support controllers",
+  "Description": "Adds controller support to Timberborn, including building placement, planting, selection, camera controls, and more",
   "RequiredMods": [
     {
       "Id": "Harmony"

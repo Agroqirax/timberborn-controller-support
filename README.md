@@ -19,7 +19,7 @@ In some cases, most notable the building placement & planting tools, it was nece
 > [!TIP]
 > The controller won't work while Timberborn's mod manager is open on startup because mods haven't been loaded yet. This is expected. To skip the mod manager on steam go to timberborn, properties and add `-skipModManager` to the launch options field. If the game crashes or a mod causes problems, remove `-skipModManager` from Steam's launch options to restore the mod manager and disable mods.
 
-- [Steam workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=xxxxxx): Click subscribe
+- [Steam workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3789502178): Click subscribe
 - [Mod.io](https://mod.io/g/timberborn/m/controller-support): Download & extract to `~/Documents/Timberborn/Mods/controller-support`.
 - [Github](https://github.com/agroqirax/timberborn-controller-support/releases/latest): Download & extract to `~/Documents/Timberborn/Mods/controller-support`.
 
@@ -32,58 +32,50 @@ Most controls can be rebound but this is still being worked on.
 
 **Map editor**: Most map editor functions work with a controller, but terrain editing still requires a mouse.
 
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
-
-<style>
-    .material-symbols-outlined {
-        vertical-align: middle;
-    }
-</style>
-
 ### General controls
 
-| Button                                                                                                                                 | Action           |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| <span class="material-symbols-outlined">game_stick_left</span><span class="material-symbols-outlined">gamepad</span> Left stick & dpad | Navigate UI      |
-| <span class="material-symbols-outlined">game_stick_right</span> Right stick                                                            | Scroll           |
-| <span class="material-symbols-outlined">hdr_auto</span> A                                                                              | Confirm / Select |
-| <span class="material-symbols-outlined">b_circle</span> B                                                                              | Cancel / back    |
+| Button            | Action           |
+| ----------------- | ---------------- |
+| Left stick & dpad | Navigate UI      |
+| Right stick       | Scroll           |
+| A                 | Confirm / Select |
+| B                 | Cancel / back    |
 
-### Game
+### Game mode
 
-| Button                                                                                      | Action                                                 |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| <span class="material-symbols-outlined">game_stick_right</span> Right stick                 | Pan camera                                             |
-| <span class="material-symbols-outlined">game_stick_r3</span> Right stick while pressed down | Tilt/Rotate camera                                     |
-| <span class="material-symbols-outlined">game_trigger_left</span> Left trigger               | Zoom in                                                |
-| <span class="material-symbols-outlined">game_trigger_right</span> Right trigger             | Zoom out                                               |
-| <span class="material-symbols-outlined">game_button_l1</span> Left shoulder                 | Decrease workplace priority, Decrease floodgate height |
-| <span class="material-symbols-outlined">game_button_r1</span> Right shoulder                | Increase workplace priority, Increase floodgate height |
-| <span class="material-symbols-outlined">x_circle</span> X                                   | Delete building                                        |
-| <span class="material-symbols-outlined">y_circle</span> Y                                   | Unique building action                                 |
-| <span class="material-symbols-outlined">select_window</span> Select / View                  | Enter [select mode](#select-mode)                      |
-| <span class="material-symbols-outlined">menu</span> Start / Menu                            | Pause building                                         |
+| Button                         | Action                                                 |
+| ------------------------------ | ------------------------------------------------------ |
+| Right stick                    | Pan camera                                             |
+| Right stick while pressed down | Tilt / Rotate camera                                   |
+| Left trigger                   | Zoom in                                                |
+| Right trigger                  | Zoom out                                               |
+| Left shoulder                  | Decrease workplace priority, Decrease floodgate height |
+| Right shoulder                 | Increase workplace priority, Increase floodgate height |
+| X                              | Delete building                                        |
+| Y                              | Unique building action                                 |
+| Select / View                  | Enter [select mode](#select-mode)                      |
+| Start / Menu                   | Pause building                                         |
 
 ### Building mode
 
-| Button                                                                                                                                 | Action         |
-| -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| <span class="material-symbols-outlined">game_stick_left</span><span class="material-symbols-outlined">gamepad</span> Left stick & dpad | Move selection |
-| <span class="material-symbols-outlined">game_button_l1</span> Left shoulder                                                            | Rotate left    |
-| <span class="material-symbols-outlined">game_button_r1</span> Right shoulder                                                           | Rotate right   |
-| <span class="material-symbols-outlined">hdr_auto</span> A                                                                              | Place          |
-| <span class="material-symbols-outlined">y_circle</span> Y                                                                              | Flip building  |
+| Button            | Action                  |
+| ----------------- | ----------------------- |
+| Left stick & dpad | Move cursor / selection |
+| Left shoulder     | Rotate left             |
+| Right shoulder    | Rotate right            |
+| A                 | Place                   |
+| Y                 | Flip building           |
 
 ### Select mode
 
-| Button                                                                                                                                 | Action                    |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| <span class="material-symbols-outlined">game_stick_left</span><span class="material-symbols-outlined">gamepad</span> Left stick & dpad | Move cursor/selection     |
-| <span class="material-symbols-outlined">hdr_auto</span> A                                                                              | Select / Hold to expand\* |
-| <span class="material-symbols-outlined">b_circle</span> B                                                                              | Leave select mode         |
-| <span class="material-symbols-outlined">select_window</span> Select / View                                                             | Enter/leave select mode   |
+| Button            | Action                    |
+| ----------------- | ------------------------- |
+| Left stick & dpad | Move cursor / selection   |
+| A                 | Select / Hold to expand\* |
+| B                 | Leave select mode         |
+| Select / View     | Enter / leave select mode |
 
-If there is something selectable at the cursor, it will be highlighted. Press **<span class="material-symbols-outlined">hdr_auto</span>** to select.
+If there is something selectable at the cursor, it will be highlighted. Press \*\*\*\* to select.
 
 The updated building placement, tree cutting area, planting, demolishing & priority tools work in the same way with the exception that they are automatically (de)activated when you select their respective tool.
 
