@@ -598,7 +598,25 @@ namespace ControllerSupport
 		// moved. That self-corrects for deferred scrolls and reflows alike, and settles on its own.
 		private void RefreshHighlightIfMoved()
 		{
-			if (_selected == null || _selected.panel == null)
+			if (_selected == null)
+			{
+				return;
+			}
+
+			// A UI change can take the selected element out of play without the player ever pushing the
+			// stick - a demolished building's entity-panel row, a priority marker toggled off, a bottom
+			// bar row closed by something other than confirm. Checking _selected.panel == null alone
+			// missed most of this: NavigationCandidates also drops anything hidden (display:none,
+			// invisible, zero-size, disabled) while it is still attached to the panel, which is the more
+			// common way a UI change removes an element - so the ring kept drawing around a collapsed
+			// element instead of vanishing, a small leftover amber square with nothing behind it.
+			// RefreshCandidates already knows how to recover (it's the same "panel rebuilt underneath us"
+			// case Move hits, driven by candidate-list membership rather than panel nullity), so just run
+			// it every frame instead of only from Move - panels here are small enough that the walk is
+			// cheap, and it is the only check that actually matches what NavigationCandidates considers
+			// gone.
+			RefreshCandidates();
+			if (_selected == null)
 			{
 				return;
 			}
