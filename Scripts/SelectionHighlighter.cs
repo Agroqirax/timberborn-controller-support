@@ -152,37 +152,47 @@ namespace ControllerSupport
 		// icon and count around every time the selection lands on it.
 		private void UpdateRing(VisualElement target)
 		{
-			// Parented to the target's *parent*, never to the target. VisualElement drops its measure
-			// function the moment it gains a child - so a text-only Button given a child stops reporting
-			// how wide its text is, collapses to nothing, and wraps one character per line. That is what
-			// turned "read more" into a vertical stack of letters, and what quietly narrowed the mod menu
-			// box around "browse local mods". The parent always has a child already, so it is unaffected.
-			var host = target?.hierarchy.parent;
-			if (host == null)
+			// Parented to the panel's own root, never to the target's parent (an earlier version did
+			// that - see git history). VisualElement drops its measure function the moment it gains a
+			// child, which is why the ring was never parented to the target itself (a text-only Button
+			// given a child collapses to nothing and wraps one character per line - what turned "read
+			// more" into a vertical stack of letters). Parenting to the target's *parent* avoided that,
+			// but broke worse for a target that lives in a flex-wrap row (the workplace panel's
+			// per-beaver list): adding any extra child there - even one that is itself position:absolute
+			// - visibly disrupted that container's wrap accounting, and the hovered row jumped to
+			// roughly the combined height of every wrapped row instead of just its own (confirmed via
+			// logged layout heights: 32 -> 66 while the container's own height never moved). A
+			// non-wrapping row never showed this, which is what kept it from surfacing anywhere else.
+			// The panel root never wraps anything, so it can take a new child safely, the same way
+			// Tooltip/DropdownListDrawer already use their own dedicated roots instead of injecting into
+			// whatever they're pointing at.
+			var root = target?.panel?.visualTree;
+			if (root == null)
 			{
 				DetachRing();
 				return;
 			}
 
-			var rect = target.layout;
-			if (float.IsNaN(rect.x) || float.IsNaN(rect.y))
+			var worldBound = target.worldBound;
+			if (float.IsNaN(worldBound.x) || float.IsNaN(worldBound.y))
 			{
 				DetachRing();
 				return;
 			}
 
 			_ring ??= CreateRing();
-			if (!ReferenceEquals(_ringHost, host))
+			if (!ReferenceEquals(_ringHost, root))
 			{
 				DetachRing();
-				host.hierarchy.Add(_ring);
-				_ringHost = host;
+				root.hierarchy.Add(_ring);
+				_ringHost = root;
 			}
 
-			// layout is measured from the host's border box, absolute offsets from its padding box.
-			var border = host.resolvedStyle;
-			var placement = new Rect(rect.xMin - border.borderLeftWidth, rect.yMin - border.borderTopWidth,
-				rect.width, rect.height);
+			// WorldToLocal converts the target's screen-space bounds into the root's own local space -
+			// unlike the old parent-relative math, this holds regardless of how deep target sits below
+			// root or what any of its ancestors' own borders/padding are.
+			var topLeft = root.WorldToLocal(worldBound.position);
+			var placement = new Rect(topLeft.x, topLeft.y, worldBound.width, worldBound.height);
 
 			// Re-applied every frame the selection moves, and scrolling moves it constantly, so skip the
 			// style writes when nothing actually changed.
