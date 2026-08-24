@@ -32,7 +32,9 @@
         "Timberborn.BlueprintSystem.dll",
         "Timberborn.AreaSelectionSystem.dll",
         "Timberborn.AreaSelectionSystemUI.dll",
-        "Timberborn.BlockSystem.dll"
+        "Timberborn.BlockSystem.dll",
+        "Timberborn.CursorToolSystem.dll",
+        "Timberborn.SelectionSystem.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

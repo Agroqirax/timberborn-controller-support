@@ -154,6 +154,14 @@ these, so read them from here. This is the fastest way to answer "what is this e
 "is it a sibling or a child", and "does this thing have a `:hover` rule at all" — all of which
 are otherwise guesswork against decompiled factory code.
 
+The sibling `Blueprints.zip` in the same folder has the actual data behind every `ComponentSpec` —
+`Configurations/<SpecRecordName minus "Spec">.blueprint.json`, e.g. `SelectionColorsSpec` reads
+from `Configurations/SelectionColors.blueprint.json`. The decompiled C# only gives field names
+(`Color EntitySelection { get; init; }`), never the real values — Timberborn names spec fields by
+*role*, not by what they look like, so a plausible-sounding name like `SelectionToolHighlight` or
+`ToolActionTile` can turn out to be a colour you didn't expect (both are actually dark red, not
+amber). Check this zip before writing code that assumes a spec value.
+
 Worth knowing about two elements in particular:
 
 - `ExtendableTopBarCounter.uxml` — `CounterWrapper` (the box) and `ExtensionToggler` (the little

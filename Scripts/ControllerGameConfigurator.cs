@@ -15,6 +15,7 @@ namespace ControllerSupport
 			Bind<GamepadToolCancelInputProcessor>().AsSingleton();
 			Bind<GamepadBuildingPlacementController>().AsSingleton();
 			Bind<GamepadAreaSelectionController>().AsSingleton();
+			Bind<GamepadSelectionController>().AsSingleton();
 		}
 	}
 }
