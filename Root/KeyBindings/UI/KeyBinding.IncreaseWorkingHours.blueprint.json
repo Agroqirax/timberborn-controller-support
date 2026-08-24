@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Keyboard>/equals",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

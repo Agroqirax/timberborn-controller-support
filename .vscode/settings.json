@@ -18,6 +18,14 @@
       "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/workshop_data.schema.json"
     },
     {
+      "fileMatch": ["KeyBindings/*/KeyBinding.*.blueprint.json"],
+      "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/KeyBinding.schema.json"
+    },
+    {
+      "fileMatch": ["KeyBindingGroups/KeyBindingGroup.*.blueprint.json"],
+      "url": "https://raw.githubusercontent.com/agroqirax/timberborn-schemas/main/schemas/KeyBindingGroup.schema.json"
+    },
+    {
       "fileMatch": ["*.asmdef"],
       "url": "https://www.schemastore.org/asmdef"
     }

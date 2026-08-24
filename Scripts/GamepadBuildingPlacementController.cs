@@ -2,6 +2,7 @@ using System;
 using Timberborn.BlockObjectTools;
 using Timberborn.CameraSystem;
 using Timberborn.InputSystem;
+using Timberborn.KeyBindingSystem;
 using Timberborn.SingletonSystem;
 using Timberborn.TerrainQueryingSystem;
 using Timberborn.ToolSystem;
@@ -11,8 +12,12 @@ using UnityEngine.InputSystem;
 namespace ControllerSupport
 {
 	// Drives building placement with the gamepad: the left stick/d-pad nudges the ghost one voxel
-	// at a time, A places (held while moving, drags a line/path the same way a mouse-drag would),
-	// LB/RB rotate and Y flips.
+	// at a time, A places (held while moving, drags a line/path the same way a mouse-drag would).
+	// LB/RB (rotate) and Y (flip) are handled natively now - see the mod's RotateClockwise/
+	// RotateCounterclockwise/Flip keybinding blueprints - since BlockObjectPlacementPanel's own
+	// BindableButtons already call PreviewPlacement for those once a gamepad control is registered
+	// as their secondary binding, and it also skips Flip on objects that aren't flippable, which
+	// this controller's own unconditional call never did.
 	//
 	// There is no public seam into AreaSelectionController - the class that actually owns ghost
 	// preview, drag and placement for every BlockObjectTool - so this never talks to it directly.
@@ -36,9 +41,9 @@ namespace ControllerSupport
 		private readonly InputService _inputService;
 		private readonly CameraService _cameraService;
 		private readonly ToolService _toolService;
-		private readonly PreviewPlacement _previewPlacement;
 		private readonly TerrainPicker _terrainPicker;
 		private readonly PanelTracker _panelTracker;
+		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 
@@ -47,15 +52,15 @@ namespace ControllerSupport
 		private float _nextFailureLogTime;
 
 		public GamepadBuildingPlacementController(InputService inputService, CameraService cameraService,
-			ToolService toolService, PreviewPlacement previewPlacement, TerrainPicker terrainPicker,
-			PanelTracker panelTracker)
+			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker,
+			KeyBindingRegistry keyBindingRegistry)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
-			_previewPlacement = previewPlacement;
 			_terrainPicker = terrainPicker;
 			_panelTracker = panelTracker;
+			_keyBindingRegistry = keyBindingRegistry;
 		}
 
 		public void Load()
@@ -115,7 +120,7 @@ namespace ControllerSupport
 				Activate();
 			}
 
-			var step = _stepReader.ReadStep(gamepad, _cameraService.HorizontalAngle);
+			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 			if (step != Vector2Int.zero)
 			{
 				_cursor += new Vector3Int(step.x, step.y, 0);
@@ -126,21 +131,6 @@ namespace ControllerSupport
 			GamepadPlacementState.MainMouseButtonDown = gamepad.buttonSouth.wasPressedThisFrame;
 			GamepadPlacementState.MainMouseButtonHeld = gamepad.buttonSouth.isPressed;
 			GamepadPlacementState.MainMouseButtonUp = gamepad.buttonSouth.wasReleasedThisFrame;
-
-			if (gamepad.leftShoulder.wasPressedThisFrame)
-			{
-				_previewPlacement.RotateCounterclockwise();
-			}
-
-			if (gamepad.rightShoulder.wasPressedThisFrame)
-			{
-				_previewPlacement.RotateClockwise();
-			}
-
-			if (gamepad.buttonNorth.wasPressedThisFrame)
-			{
-				_previewPlacement.Flip();
-			}
 		}
 
 		private void Activate()

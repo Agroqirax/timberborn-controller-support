@@ -5,6 +5,7 @@ using Timberborn.CameraSystem;
 using Timberborn.Coordinates;
 using Timberborn.CursorToolSystem;
 using Timberborn.InputSystem;
+using Timberborn.KeyBindingSystem;
 using Timberborn.SelectionSystem;
 using Timberborn.SingletonSystem;
 using Timberborn.TerrainQueryingSystem;
@@ -18,8 +19,16 @@ namespace ControllerSupport
 	// Drives the default Select tool (CursorTool) with the gamepad: a single grid cell, moved with
 	// the stick/d-pad exactly like GamepadBuildingPlacementController's ghost, highlights whatever
 	// SelectableObject sits under it, A selects it (opening its entity panel the same way a real
-	// click does), B backs out to UI navigation. Always exactly one cell - unlike the area-selection
-	// tools there is no click-and-drag rectangle here, so holding A never grows it.
+	// click does), B (Cancel) backs out to UI navigation. Always exactly one cell - unlike the
+	// area-selection tools there is no click-and-drag rectangle here, so holding A never grows it.
+	//
+	// Two ways in and out. The dedicated ToggleSelectMode keybind (<Gamepad>/select by default) is a
+	// straight toggle from anywhere - switches to CursorTool if needed and engages, or disengages if
+	// already engaged - and never touches the shared Cancel signal, so it can't collide with
+	// anything else watching it. B/Cancel, by contrast, is shared with CursorTool's own native
+	// deselect-on-Cancel (ProcessUnselectObject) - exiting this mod's own submode on B is staged
+	// ahead of that via GamepadSelectModeCancelGate, so the first B press only exits select mode and
+	// a second, separate press is what actually deselects/closes the entity panel.
 	//
 	// CursorTool has no public seam for injecting a fake click the way BlockObjectTool/
 	// AreaSelectionController do, but it doesn't need one: SelectableObjectRaycaster already exposes
@@ -55,6 +64,10 @@ namespace ControllerSupport
 		private const float FailureLogInterval = 30f;
 		private const float RayHeight = 1000f;
 
+		// Matches the Id in this mod's own KeyBinding.ToggleSelectMode.blueprint.json - a keybind this
+		// mod defines from scratch (no vanilla equivalent), primary-bound to <Gamepad>/select.
+		private const string ToggleSelectModeKey = "ToggleSelectMode";
+
 		// Not game colours - Timberborn's own SelectionColorsSpec.SelectionToolHighlight is a dark
 		// red (0.55, 0.03, 0.05), verified against Blueprints.zip, not amber at all. Picked these to
 		// read as "amber" while sitting at the same brightness/opacity as the game's own tool colours
@@ -81,6 +94,7 @@ namespace ControllerSupport
 		private readonly RollingHighlighter _rollingHighlighter;
 		private readonly RectangleBoundsDrawerFactory _rectangleBoundsDrawerFactory;
 		private readonly WaterOpacityService _waterOpacityService;
+		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 
@@ -97,7 +111,7 @@ namespace ControllerSupport
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker, EventBus eventBus,
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
 			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
-			WaterOpacityService waterOpacityService)
+			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -110,6 +124,7 @@ namespace ControllerSupport
 			_rollingHighlighter = rollingHighlighter;
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_waterOpacityService = waterOpacityService;
+			_keyBindingRegistry = keyBindingRegistry;
 		}
 
 		public void Load()
@@ -158,7 +173,24 @@ namespace ControllerSupport
 			_lastKnownActiveTool = activeTool;
 
 			var gamepad = Gamepad.current;
-			if (gamepad == null || !(activeTool is CursorTool))
+			if (gamepad == null)
+			{
+				_armPending = false;
+				Disengage();
+				return;
+			}
+
+			// Works from any tool - a shortcut past the bottom bar entirely, so it never moves
+			// GamepadNavigationInputProcessor's own selection onto the Select tool's button the way
+			// navigating there and confirming it would. Gated on HasStackedPanel for the same reason
+			// as everywhere else below: a dialog underneath shouldn't lose focus to a tool switch.
+			if (!_panelTracker.HasStackedPanel && _inputService.IsKeyDown(ToggleSelectModeKey))
+			{
+				ToggleSelectMode(activeTool);
+				return;
+			}
+
+			if (!(activeTool is CursorTool))
 			{
 				_armPending = false;
 				Disengage();
@@ -187,13 +219,23 @@ namespace ControllerSupport
 				Engage();
 			}
 
-			if (gamepad.buttonEast.wasPressedThisFrame)
+			// Reads the keybinding-driven signal rather than the raw button so this backs out on
+			// whatever the player's Cancel is bound to - including the gamepad secondary this mod now
+			// registers for it - instead of being hardcoded to B specifically. CursorTool's own
+			// ProcessUnselectObject reacts to the exact same signal (deselecting whatever's selected,
+			// closing the entity panel) every frame it's true, regardless of what this mod does - so
+			// without the gate below, the very same press that exits select mode would also close the
+			// panel this same frame. Flagging it here defers that to a genuinely separate press; see
+			// GamepadSelectModeCancelGate and GamepadNavigationInputProcessor.OnToolEntered for why the
+			// mod's own nav processor is guaranteed to see this before CursorTool does.
+			if (_inputService.UICancel)
 			{
 				Disengage();
+				GamepadSelectModeCancelGate.ConsumeNextCancel = true;
 				return;
 			}
 
-			var step = _stepReader.ReadStep(gamepad, _cameraService.HorizontalAngle);
+			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 			if (step != Vector2Int.zero)
 			{
 				_cursor += new Vector3Int(step.x, step.y, 0);
@@ -273,6 +315,31 @@ namespace ControllerSupport
 			var worldRay = CoordinateSystem.GridToWorld(gridRay);
 			return _selectableObjectRaycaster.TryHitSelectableObjectIncludeTerrainStump(worldRay, out selectable,
 				out _);
+		}
+
+		// A toggle: pressed while already engaged, backs straight out - a second, independent way to
+		// exit besides staged B (see the UICancel branch above), on a button that never touches the
+		// shared Cancel signal at all, so it can't trip GamepadSelectModeCancelGate or CursorTool's own
+		// Cancel-driven deselect.
+		private void ToggleSelectMode(ITool activeTool)
+		{
+			if (_engaged)
+			{
+				Disengage();
+				return;
+			}
+
+			if (activeTool is CursorTool)
+			{
+				Engage();
+				return;
+			}
+
+			// ActiveTool won't read as CursorTool until next frame, so there's nothing to Engage() onto
+			// yet - arm instead and let the normal !_engaged/_armPending path above pick it up as soon
+			// as it does. One frame of delay, imperceptible.
+			_toolService.SwitchToDefaultTool();
+			_armPending = true;
 		}
 
 		private void Engage()

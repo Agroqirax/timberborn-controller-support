@@ -1,0 +1,20 @@
+{
+  "KeyBindingSpec": {
+    "Id": "GamepadMoveDown",
+    "GroupId": "GamePad",
+    "LocKey": "KeyBinding.GamepadMoveDown",
+    "Order": 21,
+    "AllowOtherModifiers": false,
+    "DevModeOnly": false
+  },
+  "PrimaryInputBindingSpec": {
+    "Path": "<Gamepad>/leftStick/down",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  },
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/dpad/down",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

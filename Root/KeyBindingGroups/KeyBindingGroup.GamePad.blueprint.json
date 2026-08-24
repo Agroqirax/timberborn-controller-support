@@ -1,0 +1,7 @@
+{
+  "KeyBindingGroupSpec": {
+    "Id": "GamePad",
+    "Order": 45,
+    "LocKey": "KeyBindingGroup.GamePad"
+  }
+}

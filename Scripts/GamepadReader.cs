@@ -1,5 +1,5 @@
+using Timberborn.KeyBindingSystem;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace ControllerSupport
 {
@@ -22,9 +22,9 @@ namespace ControllerSupport
 
 		// Returns the step to take this frame, or zero when the stick is idle or still inside the
 		// repeat delay.
-		public Vector2Int ReadMove(Gamepad gamepad)
+		public Vector2Int ReadMove(KeyBindingRegistry registry)
 		{
-			var direction = ReadDirection(gamepad);
+			var direction = ReadDirection(registry);
 			if (direction == Vector2Int.zero)
 			{
 				_heldDirection = Vector2Int.zero;
@@ -54,21 +54,19 @@ namespace ControllerSupport
 			_nextRepeatTime = 0f;
 		}
 
-		private Vector2Int ReadDirection(Gamepad gamepad)
+		private Vector2Int ReadDirection(KeyBindingRegistry registry)
 		{
 			// Hysteresis: once a direction is held, a smaller magnitude keeps it alive. Without it a
 			// stick resting near the threshold flickers between "held" and "idle", re-triggering the
 			// initial repeat delay over and over.
 			var threshold = _heldDirection == Vector2Int.zero ? PressZone : ReleaseZone;
 
-			var stick = gamepad.leftStick.ReadValue();
-			if (stick.magnitude >= threshold)
-			{
-				return Quantize(stick);
-			}
-
-			var dpad = gamepad.dpad.ReadValue();
-			return dpad.magnitude >= threshold ? Quantize(dpad) : Vector2Int.zero;
+			// GamepadMoveUp/Down/Left/Right each carry both the left stick and the d-pad as
+			// Primary/Secondary, so this one read already reflects whichever source (or both) the
+			// player is actually pushing - same combined behaviour as the old direct stick-then-dpad
+			// checks, just sourced through the rebindable keybind instead of Gamepad.current directly.
+			var stick = GamepadAxis.Read(registry, GamepadAxis.Move);
+			return stick.magnitude >= threshold ? Quantize(stick) : Vector2Int.zero;
 		}
 
 		// Stick y points up, UI Toolkit's y points down, so the vertical axis is inverted here.

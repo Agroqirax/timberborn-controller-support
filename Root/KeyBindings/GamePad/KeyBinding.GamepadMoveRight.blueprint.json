@@ -1,0 +1,20 @@
+{
+  "KeyBindingSpec": {
+    "Id": "GamepadMoveRight",
+    "GroupId": "GamePad",
+    "LocKey": "KeyBinding.GamepadMoveRight",
+    "Order": 23,
+    "AllowOtherModifiers": false,
+    "DevModeOnly": false
+  },
+  "PrimaryInputBindingSpec": {
+    "Path": "<Gamepad>/leftStick/right",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  },
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/dpad/right",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

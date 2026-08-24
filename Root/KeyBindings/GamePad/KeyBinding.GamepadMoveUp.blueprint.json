@@ -1,0 +1,20 @@
+{
+  "KeyBindingSpec": {
+    "Id": "GamepadMoveUp",
+    "GroupId": "GamePad",
+    "LocKey": "KeyBinding.GamepadMoveUp",
+    "Order": 20,
+    "AllowOtherModifiers": false,
+    "DevModeOnly": false
+  },
+  "PrimaryInputBindingSpec": {
+    "Path": "<Gamepad>/leftStick/up",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  },
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/dpad/up",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

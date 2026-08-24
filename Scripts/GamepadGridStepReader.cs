@@ -1,5 +1,5 @@
+using Timberborn.KeyBindingSystem;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace ControllerSupport
 {
@@ -23,9 +23,9 @@ namespace ControllerSupport
 
 		// Returns the grid step to take this frame, or zero when the stick is idle or still inside
 		// the repeat delay.
-		public Vector2Int ReadStep(Gamepad gamepad, float cameraHorizontalAngle)
+		public Vector2Int ReadStep(KeyBindingRegistry registry, float cameraHorizontalAngle)
 		{
-			var direction = ReadDirection(gamepad, cameraHorizontalAngle);
+			var direction = ReadDirection(registry, cameraHorizontalAngle);
 			if (direction == Vector2Int.zero)
 			{
 				_heldDirection = Vector2Int.zero;
@@ -55,18 +55,14 @@ namespace ControllerSupport
 			_nextRepeatTime = 0f;
 		}
 
-		private Vector2Int ReadDirection(Gamepad gamepad, float cameraHorizontalAngle)
+		private Vector2Int ReadDirection(KeyBindingRegistry registry, float cameraHorizontalAngle)
 		{
 			var threshold = _heldDirection == Vector2Int.zero ? PressZone : ReleaseZone;
 
-			var stick = gamepad.leftStick.ReadValue();
-			if (stick.magnitude >= threshold)
-			{
-				return Quantize(Rotate(stick, cameraHorizontalAngle));
-			}
-
-			var dpad = gamepad.dpad.ReadValue();
-			return dpad.magnitude >= threshold ? Quantize(Rotate(dpad, cameraHorizontalAngle)) : Vector2Int.zero;
+			// See GamepadReader.ReadDirection for why one read of GamepadMoveUp/Down/Left/Right already
+			// covers both the left stick and the d-pad.
+			var stick = GamepadAxis.Read(registry, GamepadAxis.Move);
+			return stick.magnitude >= threshold ? Quantize(Rotate(stick, cameraHorizontalAngle)) : Vector2Int.zero;
 		}
 
 		// CameraService.MoveCameraBy rotates a (x, 0, z) world delta by Quaternion.AngleAxis(angle,

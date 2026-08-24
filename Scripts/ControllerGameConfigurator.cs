@@ -12,7 +12,6 @@ namespace ControllerSupport
 		protected override void Configure()
 		{
 			Bind<GamepadCameraInputProcessor>().AsSingleton();
-			Bind<GamepadToolCancelInputProcessor>().AsSingleton();
 			Bind<GamepadBuildingPlacementController>().AsSingleton();
 			Bind<GamepadAreaSelectionController>().AsSingleton();
 			Bind<GamepadSelectionController>().AsSingleton();

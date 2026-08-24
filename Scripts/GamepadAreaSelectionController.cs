@@ -7,6 +7,7 @@ using Timberborn.CameraSystem;
 using Timberborn.DemolishingUI;
 using Timberborn.ForestryUI;
 using Timberborn.InputSystem;
+using Timberborn.KeyBindingSystem;
 using Timberborn.PlantingUI;
 using Timberborn.Rendering;
 using Timberborn.SingletonSystem;
@@ -68,6 +69,7 @@ namespace ControllerSupport
 		private readonly PanelTracker _panelTracker;
 		private readonly MarkerDrawerFactory _markerDrawerFactory;
 		private readonly ISpecService _specService;
+		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 
@@ -77,7 +79,7 @@ namespace ControllerSupport
 
 		public GamepadAreaSelectionController(InputService inputService, CameraService cameraService,
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker,
-			MarkerDrawerFactory markerDrawerFactory, ISpecService specService)
+			MarkerDrawerFactory markerDrawerFactory, ISpecService specService, KeyBindingRegistry keyBindingRegistry)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -86,6 +88,7 @@ namespace ControllerSupport
 			_panelTracker = panelTracker;
 			_markerDrawerFactory = markerDrawerFactory;
 			_specService = specService;
+			_keyBindingRegistry = keyBindingRegistry;
 		}
 
 		public void Load()
@@ -153,7 +156,7 @@ namespace ControllerSupport
 				Activate();
 			}
 
-			var step = _stepReader.ReadStep(gamepad, _cameraService.HorizontalAngle);
+			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 			if (step != Vector2Int.zero)
 			{
 				_cursor += new Vector3Int(step.x, step.y, 0);

@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Keyboard>/minus",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

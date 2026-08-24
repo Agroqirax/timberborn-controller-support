@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/buttonEast",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "KeyBindingSpec": {
+    "Id": "ToggleSelectMode",
+    "GroupId": "UI",
+    "LocKey": "KeyBinding.ToggleSelectMode",
+    "Order": 11,
+    "AllowOtherModifiers": false,
+    "DevModeOnly": false
+  },
+  "PrimaryInputBindingSpec": {
+    "Path": "<Gamepad>/select",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

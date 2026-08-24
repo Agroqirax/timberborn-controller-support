@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Keyboard>/numpadPlus",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

@@ -184,6 +184,64 @@ inline styles. `SelectionHighlighter` draws its selection ring as an absolutely 
 overlay rather than as a border on the control: UI Toolkit lays out border-box, so widening the
 control's own border eats into its padding and shoves the contents around.
 
+## Overriding a keybinding from a mod - JSON merge, not asset-bundle overriding
+
+Unlike UXML/USS above (which need an asset bundle to override), a mod can extend an existing
+`Blueprints/KeyBindings/<Group>/KeyBinding.<Id>.blueprint.json` by shipping a file at the exact
+same relative path. `Timberborn.SerializationSystem.JsonMerger` folds every provider's JSON for
+that path into one document (`JObject.Merge`, in `Order` sequence - base game first, mods after)
+*before* any spec (`KeyBindingSpec`, `PrimaryInputBindingSpec`, `SecondaryInputBindingSpec`) is
+deserialized. So a mod file containing only `{"SecondaryInputBindingSpec": {...}}` merges cleanly
+onto the base game's spec as a new top-level property - no `#append`/`#merge` JSON-keyword suffix
+needed for a plain object key, those are for array properties.
+
+**The catch: there is only Primary and Secondary, no third slot.** If the base blueprint already
+has a `SecondaryInputBindingSpec` (e.g. `DeleteObject` already uses it for Backspace, `Confirm`
+for numpad Enter), a mod's own `SecondaryInputBindingSpec` for that same action **replaces** it
+outright rather than adding a third binding - decide up front whether that trade-off is
+acceptable, since it silently drops the existing default for every player.
+
+**Path syntax gotcha:** every existing keyboard blueprint uses the bare form (`/Keyboard/escape`,
+`/Keyboard/r`). That only resolves because Unity's singleton Keyboard/Mouse devices are literally
+named `"Keyboard"`/`"Mouse"`. A real gamepad is named after its product string, not `"Gamepad"`,
+so the same bare-name form (`/Gamepad/buttonEast`) would silently never match anything - no error,
+`InputBinding.IsDefined` stays true, the control just never resolves and the binding is dead. Use
+Unity's layout-matching syntax instead: `<Gamepad>/buttonEast` (angle brackets mean "any device
+implementing the Gamepad layout"), which is how `Timberborn.InputSystem.InputBinding` resolves the
+path via the stock `InputSystem.FindControl`/`InputControl.IsPressed` APIs either way - fully
+generic, no keyboard/gamepad special-casing anywhere in `Timberborn.KeyBindingSystem`.
+
+**Registering a binding is often all that's needed - check for a native consumer before writing
+mod code.** Several base-game systems already watch specific keybinding IDs and are otherwise
+inert for a device that was never bound to them:
+- `PanelStack.ProcessInput()` calls the front panel's `OnUICancelled()`/`OnUIConfirmed()` on
+  `Cancel`/`Confirm` respectively - the *only* place either is consumed for panel dismiss/default
+  action. `PanelStack` isn't even registered as an `IInputProcessor` while no panel is stacked, so
+  there's no window where it fires outside a dialog.
+- `ToolService` and `ToolGroupService` each separately watch `InputService.Cancel` to drop the
+  active tool / close the open bottom-bar row - two more processors, not one.
+- `DropdownListDrawer` closes itself watching the same `Cancel` signal.
+- `BlockObjectPlacementPanel` wires `RotateClockwise`/`RotateCounterclockwise`/`Flip` to
+  `PreviewPlacement` via small per-button `BindableButton` (`Timberborn.InputSystemUI`) processors,
+  bound/unbound on `ToolEnteredEvent`/`ToolExitedEvent` for `BlockObjectTool` - and only binds Flip
+  at all when the object is actually flippable, which a mod's own unconditional call would not
+  know to skip.
+
+If a mod's own code duplicates one of these (rather than deleting it once the blueprint takes
+over), don't assume the duplication is harmless just because it doesn't error: a repeated
+`RotateClockwise()` on the same press rotates twice as far, a repeated `Flip()` flips right back
+to where it started. `Cancel` happens to be safe to double up on because closing an already-closed
+dialog is a no-op either way - that's a property of `Cancel` specifically, not of double-handling
+in general.
+
+**Where to place the file for `tbuild`:** the game's `ModSystemFileProvider` scans a mod's
+installed root recursively - no reserved `Blueprints/` folder name or manifest declaration
+required, the asset key is just the file's path relative to that root, mirroring `Blueprints.zip`'s
+own internal layout 1:1 (e.g. `KeyBindings/UI/KeyBinding.Cancel.blueprint.json`, no leading
+`Blueprints/`). `tbuild` copies `./Root/**` flattened straight into the installed mod's root
+(`cp -r ./Root/. "$MODDIR/"`), so the source file belongs at
+`Root/KeyBindings/UI/KeyBinding.Cancel.blueprint.json` in the mod's own repo.
+
 ## Controls (what a "single control" actually is)
 
 - Timberborn's controls are **composites**, and their inner parts are independently clickable. A

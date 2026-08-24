@@ -1,6 +1,7 @@
 using System;
 using Timberborn.CameraSystem;
 using Timberborn.InputSystem;
+using Timberborn.KeyBindingSystem;
 using Timberborn.SingletonSystem;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -39,16 +40,18 @@ namespace ControllerSupport
 		private readonly CameraService _cameraService;
 		private readonly InputSettings _inputSettings;
 		private readonly PanelTracker _panelTracker;
+		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private float _nextFailureLogTime;
 
 		public GamepadCameraInputProcessor(InputService inputService, CameraService cameraService,
-			InputSettings inputSettings, PanelTracker panelTracker)
+			InputSettings inputSettings, PanelTracker panelTracker, KeyBindingRegistry keyBindingRegistry)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_inputSettings = inputSettings;
 			_panelTracker = panelTracker;
+			_keyBindingRegistry = keyBindingRegistry;
 		}
 
 		public void Load()
@@ -70,11 +73,11 @@ namespace ControllerSupport
 				{
 					if (gamepad.rightStickButton.isPressed)
 					{
-						Rotate(gamepad);
+						Rotate();
 					}
 					else
 					{
-						Pan(gamepad);
+						Pan();
 					}
 				}
 			}
@@ -91,9 +94,9 @@ namespace ControllerSupport
 		// Deadzone-rescaled analog direction and throttle for the right stick, or null under the
 		// deadzone. Shared between Pan and Rotate so easing in from a standstill behaves the same way
 		// for both.
-		private static bool TryReadStick(Gamepad gamepad, out Vector2 direction, out float throttle)
+		private bool TryReadStick(out Vector2 direction, out float throttle)
 		{
-			var stick = gamepad.rightStick.ReadValue();
+			var stick = GamepadAxis.Read(_keyBindingRegistry, GamepadAxis.RightStick);
 			var magnitude = stick.magnitude;
 			if (magnitude < Deadzone)
 			{
@@ -107,9 +110,9 @@ namespace ControllerSupport
 			return true;
 		}
 
-		private void Pan(Gamepad gamepad)
+		private void Pan()
 		{
-			if (!TryReadStick(gamepad, out var direction, out var throttle))
+			if (!TryReadStick(out var direction, out var throttle))
 			{
 				return;
 			}
@@ -128,9 +131,9 @@ namespace ControllerSupport
 		// right) but feels backwards on a stick, where the expected convention is "the stick points
 		// where the camera looks" (flight-stick / third-person-camera style). So stick right looks
 		// right, stick up looks up.
-		private void Rotate(Gamepad gamepad)
+		private void Rotate()
 		{
-			if (!TryReadStick(gamepad, out var direction, out var throttle))
+			if (!TryReadStick(out var direction, out var throttle))
 			{
 				return;
 			}

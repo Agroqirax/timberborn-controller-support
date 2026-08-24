@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Timberborn.InputSystem;
+using Timberborn.KeyBindingSystem;
 using Timberborn.SingletonSystem;
+using Timberborn.ToolSystem;
 using Timberborn.UISound;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -24,6 +26,8 @@ namespace ControllerSupport
 		private readonly PanelTracker _panelTracker;
 		private readonly DropdownTracker _dropdownTracker;
 		private readonly UISoundController _uiSoundController;
+		private readonly EventBus _eventBus;
+		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadReader _reader = new GamepadReader();
 		private readonly SelectionHighlighter _highlighter = new SelectionHighlighter();
@@ -43,26 +47,48 @@ namespace ControllerSupport
 		private float _nextFailureLogTime;
 
 		public GamepadNavigationInputProcessor(InputService inputService, InputBlocker inputBlocker,
-			PanelTracker panelTracker, DropdownTracker dropdownTracker, UISoundController uiSoundController)
+			PanelTracker panelTracker, DropdownTracker dropdownTracker, UISoundController uiSoundController,
+			EventBus eventBus, KeyBindingRegistry keyBindingRegistry)
 		{
 			_inputService = inputService;
 			_inputBlocker = inputBlocker;
 			_panelTracker = panelTracker;
 			_dropdownTracker = dropdownTracker;
 			_uiSoundController = uiSoundController;
+			_eventBus = eventBus;
+			_keyBindingRegistry = keyBindingRegistry;
 		}
 
 		public void Load()
 		{
 			_inputService.AddInputProcessor(this);
 			_panelTracker.PanelChanged += OnPanelChanged;
+			_eventBus.Register(this);
 		}
 
 		public void Unload()
 		{
+			_eventBus.Unregister(this);
 			_panelTracker.PanelChanged -= OnPanelChanged;
 			ClearSelection();
 			_inputService.RemoveInputProcessor(this);
+		}
+
+		// CursorTool (and any other tool) re-registers itself to the front of InputService's regular
+		// chain on every tool switch (Enter()/Exit()), same pattern PanelStack uses for panels - and
+		// exactly as unrelated to PanelShownEvent/PanelHiddenEvent as it sounds, so the re-registration
+		// above never sees it. Without this, a tool switch (including CursorTool re-entering itself,
+		// which ToolService always force-does even when it was already active - see
+		// GamepadSelectionController's own notes on that) can silently put a native tool processor ahead
+		// of this one. ToolService.SwitchToolInternal calls tool.Enter() (which is where CursorTool adds
+		// itself) synchronously before posting ToolEnteredEvent - the same "register, then post" order
+		// PanelStack.Show() uses - so re-registering from this handler lands after it for the same
+		// deterministic reason OnPanelChanged already relies on.
+		[OnEvent]
+		public void OnToolEntered(ToolEnteredEvent toolEnteredEvent)
+		{
+			_inputService.RemoveInputProcessor(this);
+			_inputService.AddInputProcessor(this);
 		}
 
 		// InputService walks its processors last-registered-first, and PanelStack re-registers itself
@@ -73,28 +99,42 @@ namespace ControllerSupport
 		// to notice we had been buried.
 		private void OnPanelChanged()
 		{
-			// This fires synchronously off PanelStack's own show/hide event, ahead of the next
-			// ProcessInputCore - which is also where EnterScope normally banks the outgoing scope's
-			// selection before moving on. Wiping _scope below without remembering first meant EnterScope
-			// always found it already null and never had anything to save: closing a panel would put the
-			// player back in the scope behind it with no memory of where they had been in it.
-			if (_scope != null && _selected != null)
+			try
 			{
-				_memory.Remember(_scope, _selected, _lastSelectionCentre);
+				// This fires synchronously off PanelStack's own show/hide event, ahead of the next
+				// ProcessInputCore - which is also where EnterScope normally banks the outgoing scope's
+				// selection before moving on. Wiping _scope below without remembering first meant
+				// EnterScope always found it already null and never had anything to save: closing a
+				// panel would put the player back in the scope behind it with no memory of where they
+				// had been in it.
+				if (_scope != null && _selected != null)
+				{
+					_memory.Remember(_scope, _selected, _lastSelectionCentre);
+				}
+
+				ClearSelection();
+				_pendingSubSection = null;
+				_pendingSubSectionOwner = null;
+				_activeToolGroupRow = null;
+				_activeToolGroupOwner = null;
+				_initialSelectionFrames = 0;
+				_candidates.Clear();
+				_scope = null;
+				_reader.Reset();
 			}
-
-			ClearSelection();
-			_pendingSubSection = null;
-			_pendingSubSectionOwner = null;
-			_activeToolGroupRow = null;
-			_activeToolGroupOwner = null;
-			_initialSelectionFrames = 0;
-			_candidates.Clear();
-			_scope = null;
-			_reader.Reset();
-
-			_inputService.RemoveInputProcessor(this);
-			_inputService.AddInputProcessor(this);
+			finally
+			{
+				// PanelStack.Show() calls its own AddInputProcessor(self) before posting the very
+				// PanelShownEvent this handler answers, so re-registering here always lands us after
+				// it in InputService's list - and since CallInputProcessors walks last-added-first,
+				// that is what guarantees this processor is asked before PanelStack every time a panel
+				// is open. That guarantee is why it is safe for Confirm()/the TextField-blur check to
+				// win over PanelStack's own native Confirm/Cancel handling instead of racing it. If
+				// anything above throws, skipping this would silently give that position up - so it
+				// has to run unconditionally, not just on the happy path.
+				_inputService.RemoveInputProcessor(this);
+				_inputService.AddInputProcessor(this);
+			}
 		}
 
 		public bool ProcessInput()
@@ -155,6 +195,17 @@ namespace ControllerSupport
 				return false;
 			}
 
+			// GamepadSelectionController set this the instant it exited the gamepad cursor submode on
+			// this same B press, staying one step ahead of CursorTool's own native Cancel handling
+			// (guaranteed by the OnToolEntered re-registration above). Consuming it here - unconditionally,
+			// before anything else this frame - is what makes closing the entity panel need a genuinely
+			// separate press instead of happening in the same frame as the mode exit.
+			if (GamepadSelectModeCancelGate.ConsumeNextCancel)
+			{
+				GamepadSelectModeCancelGate.ConsumeNextCancel = false;
+				return true;
+			}
+
 			// While a building is being placed, the stick and d-pad move the ghost instead of the UI -
 			// there is nothing to navigate to that matters more than where the building is going. The
 			// bare HUD would otherwise still count as a scope below and keep stealing the stick to walk
@@ -196,9 +247,9 @@ namespace ControllerSupport
 			TryRecoverFromClosedToolGroup();
 			TryInitialSelection();
 			TrySubSectionJump();
-			Scroll(gamepad);
+			Scroll();
 
-			var direction = _reader.ReadMove(gamepad);
+			var direction = _reader.ReadMove(_keyBindingRegistry);
 			if (direction != Vector2Int.zero)
 			{
 				Move(direction);
@@ -215,11 +266,6 @@ namespace ControllerSupport
 			if (gamepad.buttonSouth.wasPressedThisFrame)
 			{
 				handled |= Confirm();
-			}
-
-			if (gamepad.buttonEast.wasPressedThisFrame)
-			{
-				handled |= Cancel();
 			}
 
 			return handled;
@@ -333,14 +379,14 @@ namespace ControllerSupport
 		// processor stands down while a panel is stacked, and in the main menu there is no camera at all.
 		// Deliberately does not move the selection - this is the player looking around the list, and
 		// yanking the cursor with the viewport would make it impossible to just read something.
-		private void Scroll(Gamepad gamepad)
+		private void Scroll()
 		{
 			if (!_panelTracker.HasStackedPanel && !_dropdownTracker.IsOpen)
 			{
 				return;
 			}
 
-			var stick = gamepad.rightStick.ReadValue();
+			var stick = GamepadAxis.Read(_keyBindingRegistry, GamepadAxis.RightStick);
 			if (stick.magnitude < ScrollDeadzone)
 			{
 				return;
@@ -541,34 +587,6 @@ namespace ControllerSupport
 				_pendingSubSectionFrames = SubSectionSettleFrames;
 			}
 
-			return true;
-		}
-
-		// The old build synthesised an Escape key press on the real keyboard device and released it a
-		// frame later by queueing a blank keyboard state - which also wiped whatever the player was
-		// genuinely holding down. The panel's own cancel handler is public; calling it is both exact
-		// and free of side effects.
-		private bool Cancel()
-		{
-			// The drawer closes itself on the Cancel keybinding, which we deliberately no longer
-			// synthesise - so closing it is on us before the press reaches the panel behind it.
-			if (_dropdownTracker.IsOpen)
-			{
-				ClearSelection();
-				_dropdownTracker.Close();
-				_uiSoundController.PlayCancelSound();
-				return true;
-			}
-
-			var controller = _panelTracker.TopController;
-			if (controller == null)
-			{
-				return false;
-			}
-
-			ClearSelection();
-			controller.OnUICancelled();
-			_uiSoundController.PlayCancelSound();
 			return true;
 		}
 
