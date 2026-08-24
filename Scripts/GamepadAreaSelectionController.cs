@@ -222,8 +222,18 @@ namespace ControllerSupport
 			_cursor = picked?.Coordinates ?? Vector3Int.zero;
 		}
 
+		// Guarded, not unconditional - see GamepadBuildingPlacementController.Deactivate for why:
+		// three separate controllers share the one static GamepadPlacementState, and clearing it
+		// every frame the tool isn't one of this class's own, rather than only once on the actual
+		// active -> inactive edge, made whichever controller happened to run last each frame the
+		// deciding vote regardless of which tool was genuinely active.
 		private void Deactivate()
 		{
+			if (!_active)
+			{
+				return;
+			}
+
 			_active = false;
 			GamepadPlacementState.Clear();
 		}

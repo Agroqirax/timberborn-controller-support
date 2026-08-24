@@ -166,8 +166,22 @@ namespace ControllerSupport
 			_cursor = picked?.Coordinates ?? Vector3Int.zero;
 		}
 
+		// Guarded, not unconditional: this runs every frame BlockObjectTool isn't active, and three
+		// separate controllers (this one, GamepadAreaSelectionController, GamepadSelectionController)
+		// all share the one static GamepadPlacementState. An unconditional Clear() here would stomp
+		// on whichever of the OTHER two is legitimately driving the state this frame, with the
+		// outcome depending entirely on which priority processor happens to run last - true even
+		// though only one tool can ever be active at a time, since every non-owning controller was
+		// still clearing every single frame, not just on the transition away from its own tool. Only
+		// clearing once, on the actual _active -> inactive edge, means a controller only ever touches
+		// state it itself previously owned.
 		private void Deactivate()
 		{
+			if (!_active)
+			{
+				return;
+			}
+
 			_active = false;
 			GamepadPlacementState.Clear();
 		}

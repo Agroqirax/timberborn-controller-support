@@ -34,7 +34,8 @@
         "Timberborn.AreaSelectionSystemUI.dll",
         "Timberborn.BlockSystem.dll",
         "Timberborn.CursorToolSystem.dll",
-        "Timberborn.SelectionSystem.dll"
+        "Timberborn.SelectionSystem.dll",
+        "Timberborn.WaterSystemRendering.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

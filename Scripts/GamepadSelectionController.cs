@@ -9,6 +9,7 @@ using Timberborn.SelectionSystem;
 using Timberborn.SingletonSystem;
 using Timberborn.TerrainQueryingSystem;
 using Timberborn.ToolSystem;
+using Timberborn.WaterSystemRendering;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -79,10 +80,12 @@ namespace ControllerSupport
 		private readonly SelectableObjectRaycaster _selectableObjectRaycaster;
 		private readonly RollingHighlighter _rollingHighlighter;
 		private readonly RectangleBoundsDrawerFactory _rectangleBoundsDrawerFactory;
+		private readonly WaterOpacityService _waterOpacityService;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 
 		private RectangleBoundsDrawer _cursorBoundsDrawer;
+		private WaterOpacityToggle _waterOpacityToggle;
 
 		private bool _engaged;
 		private bool _armPending;
@@ -93,7 +96,8 @@ namespace ControllerSupport
 		public GamepadSelectionController(InputService inputService, CameraService cameraService,
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker, EventBus eventBus,
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
-			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory)
+			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
+			WaterOpacityService waterOpacityService)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -105,6 +109,7 @@ namespace ControllerSupport
 			_selectableObjectRaycaster = selectableObjectRaycaster;
 			_rollingHighlighter = rollingHighlighter;
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
+			_waterOpacityService = waterOpacityService;
 		}
 
 		public void Load()
@@ -112,6 +117,7 @@ namespace ControllerSupport
 			_inputService.AddInputProcessor(this);
 			_eventBus.Register(this);
 			_cursorBoundsDrawer = _rectangleBoundsDrawerFactory.Create(CursorTileColor, CursorSideColor);
+			_waterOpacityToggle = _waterOpacityService.GetWaterOpacityToggle();
 		}
 
 		// See GamepadBuildingPlacementController.Unload for why an IPriorityInputProcessor can never
@@ -121,6 +127,7 @@ namespace ControllerSupport
 		{
 			_eventBus.Unregister(this);
 			_rollingHighlighter.UnhighlightAllPrimary();
+			_waterOpacityToggle.ShowWater();
 			GamepadPlacementState.Clear();
 		}
 
@@ -279,6 +286,12 @@ namespace ControllerSupport
 			var ray = _cameraService.ScreenPointToRayInGridSpace(screenCentre);
 			var picked = _terrainPicker.PickTerrainCoordinates(ray);
 			_cursor = picked?.CoordinatesWithFaceOffset ?? Vector3Int.zero;
+
+			// Same call BlockObjectTool/BlockObjectDeletionTool<T> get for free from
+			// Timberborn.ToolSystemUI.ToolWaterToggler, which hides water for any non-default tool -
+			// CursorTool never triggers that (it *is* the default tool, so IsDefaultToolActive never
+			// flips while this submode is armed), so it has to be done by hand here instead.
+			_waterOpacityToggle.HideWater();
 		}
 
 		private void Disengage()
@@ -290,6 +303,7 @@ namespace ControllerSupport
 
 			_engaged = false;
 			_rollingHighlighter.UnhighlightAllPrimary();
+			_waterOpacityToggle.ShowWater();
 			GamepadPlacementState.Clear();
 		}
 
