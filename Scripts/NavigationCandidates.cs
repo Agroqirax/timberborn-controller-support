@@ -40,7 +40,17 @@ namespace ControllerSupport
 			// Controls are leaves as far as navigation is concerned. Descending into one would let its
 			// internal parts - a clickable label, a slider's dragger and track - each become their own
 			// candidate, scattering a single control across several selectable positions.
-			if (ControlActivator.IsControl(element))
+			//
+			// A Button is the one exception: some templates use a Button purely for its 9-slice
+			// background, with no handler of its own, and either leave it inert (StockpilePriorityFragment's
+			// "Background" behind the four real toggle buttons - selecting it did nothing, but nothing
+			// stopped it from being a candidate) or nest the real clickable Button inside it
+			// (GoodSelectionBoxItemFactory's item root is itself a handler-less NineSliceButton wrapping
+			// the actual "GoodSelectionBoxItem" button - confirming grabbed the outer shell and the click
+			// went nowhere). Only descend past a Button when it fails this check; every other IsControl
+			// type is activated by ControlActivator through its own type-specific path rather than a raw
+			// ClickEvent handler, so the same check would wrongly exclude a perfectly real Toggle/Slider.
+			if (ControlActivator.IsControl(element) && !IsInertButton(element))
 			{
 				if (IsBigEnough(element))
 				{
@@ -90,6 +100,14 @@ namespace ControllerSupport
 			}
 
 			return false;
+		}
+
+		// A Button with no click handler of its own - see the comment above IsControl's use in
+		// CollectFrom. Reusing VisualElementProbe here (rather than trusting IsControl alone) is what
+		// tells a real interactive Button apart from one that only exists for its 9-slice background.
+		private static bool IsInertButton(VisualElement element)
+		{
+			return element is Button && !VisualElementProbe.HasClickHandler(element);
 		}
 
 		// Only the rows the ListView has actually realised come back non-null - virtualisation keeps
