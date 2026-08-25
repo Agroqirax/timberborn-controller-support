@@ -1,0 +1,7 @@
+ID,Text,*Comment*
+KeyBinding.ToggleSelectMode,สลับโหมดการเลือก,
+KeyBinding.GamepadMoveDown,เลื่อนลง,
+KeyBinding.GamepadMoveLeft,เลื่อนไปทางซ้าย,
+KeyBinding.GamepadMoveRight,เลื่อนไปทางขวา,
+KeyBinding.GamepadMoveUp,เลื่อนขึ้น,
+KeyBindingGroup.GamePad,เกมแพด,

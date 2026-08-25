@@ -2,13 +2,13 @@
   "ItemId": "3789502178",
   "Name": "Controller Support",
   "Visibility": "Public",
-  "UpdateDescription": true,
-  "UpdateVisibility": true,
-  "UpdatePreview": true,
+  "UpdateDescription": false,
+  "UpdateVisibility": false,
+  "UpdatePreview": false,
   "UpdateTags": true,
   "Tags": [
-    "Update 1.0",
     "Update 1.1",
+    "Update 1.0",
     "Quality of life",
     "Miscellaneous"
   ]

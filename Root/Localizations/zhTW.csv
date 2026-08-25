@@ -1,0 +1,7 @@
+ID,Text,*Comment*
+KeyBinding.ToggleSelectMode,切換選擇模式,
+KeyBinding.GamepadMoveDown,向下導覽,
+KeyBinding.GamepadMoveLeft,向左導覽,
+KeyBinding.GamepadMoveRight,向右導覽,
+KeyBinding.GamepadMoveUp,向上導覽,
+KeyBindingGroup.GamePad,遊戲手把,

@@ -1,7 +1,7 @@
 ID,Text,Comment
 KeyBinding.ToggleSelectMode,Toggle select mode,
-KeyBinding.GamepadMoveDown,Gamepad Move Down,
-KeyBinding.GamepadMoveLeft,Gamepad Move Left,
-KeyBinding.GamepadMoveRight,Gamepad Move Right,
-KeyBinding.GamepadMoveUp,Gamepad Move Up,
+KeyBinding.GamepadMoveDown,Navigate Down,
+KeyBinding.GamepadMoveLeft,Navigate Left,
+KeyBinding.GamepadMoveRight,Navigate Right,
+KeyBinding.GamepadMoveUp,Navigate Up,
 KeyBindingGroup.GamePad,Game Pad,

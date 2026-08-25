@@ -1,0 +1,7 @@
+ID,Text,*Comment*
+KeyBinding.ToggleSelectMode,Переключить режим выбора,
+KeyBinding.GamepadMoveDown,Перемещение вниз,
+KeyBinding.GamepadMoveLeft,Перемещение влево,
+KeyBinding.GamepadMoveRight,Перемещение вправо,
+KeyBinding.GamepadMoveUp,Перемещение вверх,
+KeyBindingGroup.GamePad,Геймпад,
