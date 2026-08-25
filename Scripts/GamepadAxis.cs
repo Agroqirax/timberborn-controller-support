@@ -35,12 +35,6 @@ namespace ControllerSupport
 		public static readonly GamepadAxisKeys Move =
 			new GamepadAxisKeys("GamepadMoveUp", "GamepadMoveDown", "GamepadMoveLeft", "GamepadMoveRight");
 
-		// Matches KeyBinding.GamepadRightStick*.blueprint.json - right stick only. Drives camera pan,
-		// camera rotate (while R3 held) and list scrolling, contextually, the same physical stick for
-		// all three exactly as before any of this was rebindable.
-		public static readonly GamepadAxisKeys RightStick = new GamepadAxisKeys(
-			"GamepadRightStickUp", "GamepadRightStickDown", "GamepadRightStickLeft", "GamepadRightStickRight");
-
 		public static Vector2 Read(KeyBindingRegistry registry, GamepadAxisKeys keys)
 		{
 			var x = registry.GetRawValue(keys.Right) - registry.GetRawValue(keys.Left);

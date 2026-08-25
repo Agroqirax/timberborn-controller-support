@@ -75,11 +75,16 @@ Most controls can be rebound but this is still being worked on.
 | B                 | Leave select mode         |
 | Select / View     | Enter / leave select mode |
 
-If there is something selectable at the cursor, it will be highlighted. Press \*\*\*\* to select.
+If there is something selectable at the cursor, it will be highlighted. Press A to select.
 
 The updated building placement, tree cutting area, planting, demolishing & priority tools work in the same way with the exception that they are automatically (de)activated when you select their respective tool.
 
 \*Only in tools where applicable
+
+## Features
+
+- Reworked building placement, selection & tools to use sticks instead of mouse cursor
+- Analog inputs for movement, zoom, etc
 
 ## Known issues
 

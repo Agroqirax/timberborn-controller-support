@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/rightStick/left",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

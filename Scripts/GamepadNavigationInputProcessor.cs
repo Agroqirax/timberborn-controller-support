@@ -386,7 +386,7 @@ namespace ControllerSupport
 				return;
 			}
 
-			var stick = GamepadAxis.Read(_keyBindingRegistry, GamepadAxis.RightStick);
+			var stick = CameraKeyBindingAxes.ReadSecondaryAxes(_keyBindingRegistry, CameraKeyBindingAxes.Move);
 			if (stick.magnitude < ScrollDeadzone)
 			{
 				return;
