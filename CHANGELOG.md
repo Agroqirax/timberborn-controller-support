@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Gamepad support for throttling valve and fill valve sliders, using the same keybind as floodgate height
 - Localizations for all languages
 - Keybind listener now recognizes stick inputs
+- Show steam input warning if no controller found
 
 ### Changed
 

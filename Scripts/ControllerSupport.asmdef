@@ -13,6 +13,7 @@
         "Timberborn.SingletonSystem.dll",
         "Timberborn.InputSystem.dll",
         "Timberborn.CoreUI.dll",
+        "Timberborn.Localization.dll",
         "Timberborn.UISound.dll",
         "Timberborn.DropdownSystem.dll",
         "Timberborn.CameraSystem.dll",
