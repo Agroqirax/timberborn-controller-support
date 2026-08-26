@@ -1,6 +1,6 @@
 {
-  "SecondaryInputBindingSpec": {
-    "Path": "<Keyboard>/numpadPlus",
+  "PrimaryInputBindingSpec": {
+    "Path": "<Gamepad>/rightShoulder",
     "InputModifiers": "None",
     "Unchangeable": false
   }

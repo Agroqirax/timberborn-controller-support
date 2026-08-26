@@ -1,7 +1,8 @@
-ID,Text,*Comment*
+ID,Text,Comment
 KeyBinding.ToggleSelectMode,Перемкнути режим вибору,
 KeyBinding.GamepadMoveDown,Навігація вниз,
 KeyBinding.GamepadMoveLeft,Навігація ліворуч,
 KeyBinding.GamepadMoveRight,Навігація праворуч,
 KeyBinding.GamepadMoveUp,Навігація вгору,
 KeyBindingGroup.GamePad,Геймпад,
+KeyBinding.GamepadCameraRotateModifier,Утримувати для повороту камери,

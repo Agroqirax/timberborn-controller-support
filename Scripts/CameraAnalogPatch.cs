@@ -5,7 +5,6 @@ using Timberborn.CameraSystem;
 using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace ControllerSupport
 {
@@ -30,16 +29,25 @@ namespace ControllerSupport
 	// speed" settings, including the MoveCameraFast 2x multiplier and the zoom spec's BaseZoomSpeed - no
 	// duplicated formula constants.
 	//
-	// R3 held switches the stick from panning to rotating, same trade MouseCameraController makes for
-	// RMB-held-and-dragging. That switch is plain code (Gamepad.current.rightStickButton), not a
-	// KeyBindingSystem modifier: InputModifiers is a global 4-bit Ctrl/Alt/Shift/Cmd concept, and
-	// MoveCameraUp/Down/Left/Right's AllowOtherModifiers:true (needed so holding Shift for
-	// MoveCameraFast doesn't block WASD) means gating on a modifier bit there would also gate on R3
-	// unpredictably. Both axes are negated relative to the mouse-drag version - the expected stick
-	// convention is "the stick points where the camera looks" (flight-stick / third-person-camera
-	// style), not "drag the world".
+	// Holding a modifier button switches the stick from panning to rotating, same trade
+	// MouseCameraController makes for RMB-held-and-dragging. That modifier is its own rebindable
+	// keybind (RotateModifierKey, see Root/KeyBindings/GamePad/KeyBinding.GamepadCameraRotateModifier)
+	// rather than Timberborn's own KeyBindingSystem modifier concept: InputModifiers is a closed 4-bit
+	// Ctrl/Alt/Shift/Cmd enum read only from Keyboard.current (Timberborn.InputSystem.InputModifiers),
+	// so a gamepad button can never satisfy it - there is no blueprint-level way to make a stick-press
+	// act as a modifier for another gamepad control. Reading RotateModifierKey through InputService
+	// instead is what makes "which button arms rotate" itself remappable in the controls menu, even
+	// though it composes with the stick axes in code rather than through a single chorded binding path.
+	// Both axes are negated relative to the mouse-drag version - the expected stick convention is "the
+	// stick points where the camera looks" (flight-stick / third-person-camera style), not "drag the
+	// world".
 	internal static class CameraKeyBindingAxes
 	{
+		// This mod's own keybind (Root/KeyBindings/GamePad/KeyBinding.GamepadCameraRotateModifier),
+		// primary-bound to <Gamepad>/rightStickPress by default - rebindable to any control, including
+		// the left stick's press, the same as every other keybind in this mod.
+		public const string RotateModifierKey = "GamepadCameraRotateModifier";
+
 		public static readonly GamepadAxisKeys Move =
 			new GamepadAxisKeys("MoveCameraUp", "MoveCameraDown", "MoveCameraLeft", "MoveCameraRight");
 
@@ -128,8 +136,8 @@ namespace ControllerSupport
 				var cameraService = (CameraService)CameraServiceField.GetValue(__instance);
 				var registry = CameraKeyBindingAxes.ResolveRegistry(inputService);
 
-				var r3Held = Gamepad.current != null && Gamepad.current.rightStickButton.isPressed;
-				var raw = CameraKeyBindingAxes.ReadAxes(registry, CameraKeyBindingAxes.Move, includeSecondary: !r3Held);
+				var rotateModifierHeld = inputService.IsKeyHeld(CameraKeyBindingAxes.RotateModifierKey);
+				var raw = CameraKeyBindingAxes.ReadAxes(registry, CameraKeyBindingAxes.Move, includeSecondary: !rotateModifierHeld);
 
 				var magnitude = raw.magnitude;
 				if (magnitude <= 0f)
@@ -177,8 +185,8 @@ namespace ControllerSupport
 				var cameraService = (CameraService)CameraServiceField.GetValue(__instance);
 				var registry = CameraKeyBindingAxes.ResolveRegistry(inputService);
 
-				var r3Held = Gamepad.current != null && Gamepad.current.rightStickButton.isPressed;
-				var raw = CameraKeyBindingAxes.ReadAxes(registry, CameraKeyBindingAxes.Rotate, includeSecondary: r3Held);
+				var rotateModifierHeld = inputService.IsKeyHeld(CameraKeyBindingAxes.RotateModifierKey);
+				var raw = CameraKeyBindingAxes.ReadAxes(registry, CameraKeyBindingAxes.Rotate, includeSecondary: rotateModifierHeld);
 
 				var magnitude = raw.magnitude;
 				if (magnitude <= 0f)

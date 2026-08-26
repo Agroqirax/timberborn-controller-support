@@ -272,7 +272,7 @@ namespace ControllerSupport
 				_cursorBoundsDrawer.DrawOnLevel(xy, xy, _cursor.z);
 			}
 
-			if (gamepad.buttonSouth.wasPressedThisFrame)
+			if (_inputService.UIConfirm)
 			{
 				if (hasTarget)
 				{

@@ -1,7 +1,8 @@
-ID,Text,*Comment*
+ID,Text,Comment
 KeyBinding.ToggleSelectMode,Seçim modunu aç/kapat,
 KeyBinding.GamepadMoveDown,Aşağı git,
 KeyBinding.GamepadMoveLeft,Sola git,
 KeyBinding.GamepadMoveRight,Sağa git,
 KeyBinding.GamepadMoveUp,Yukarı git,
 KeyBindingGroup.GamePad,Oyun kumandası,
+KeyBinding.GamepadCameraRotateModifier,Basılı tutarak kamerayı döndür,

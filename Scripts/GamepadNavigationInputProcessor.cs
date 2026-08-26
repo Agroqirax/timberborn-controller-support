@@ -187,7 +187,7 @@ namespace ControllerSupport
 			// plain Blur() here is always safe and never doubles as an accidental commit.
 			if (_selected is TextField focusedField && IsFocused(focusedField))
 			{
-				if (gamepad.buttonEast.wasPressedThisFrame)
+				if (_inputService.UICancel)
 				{
 					focusedField.Blur();
 				}
@@ -263,7 +263,7 @@ namespace ControllerSupport
 			// costs at most a frame, so those still report honestly.
 			var handled = false;
 
-			if (gamepad.buttonSouth.wasPressedThisFrame)
+			if (_inputService.UIConfirm)
 			{
 				handled |= Confirm();
 			}

@@ -1,7 +1,8 @@
-ID,Text,*Comment*
+ID,Text,Comment
 KeyBinding.ToggleSelectMode,切换选择模式,
 KeyBinding.GamepadMoveDown,向下导航,
 KeyBinding.GamepadMoveLeft,向左导航,
 KeyBinding.GamepadMoveRight,向右导航,
 KeyBinding.GamepadMoveUp,向上导航,
 KeyBindingGroup.GamePad,游戏手柄,
+KeyBinding.GamepadCameraRotateModifier,按住以旋转摄像机,

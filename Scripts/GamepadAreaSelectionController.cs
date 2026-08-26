@@ -62,6 +62,11 @@ namespace ControllerSupport
 	{
 		private const float FailureLogInterval = 30f;
 
+		// Matches the Id of the game's own KeyBinding.Confirm.blueprint.json - reading it through
+		// InputService rather than the raw A/South button keeps this rebindable, same as everywhere
+		// else in this mod.
+		private const string ConfirmKey = "Confirm";
+
 		private readonly InputService _inputService;
 		private readonly CameraService _cameraService;
 		private readonly ToolService _toolService;
@@ -164,9 +169,9 @@ namespace ControllerSupport
 
 			GamepadPlacementState.Active = true;
 			GamepadPlacementState.GridCursor = _cursor;
-			GamepadPlacementState.MainMouseButtonDown = gamepad.buttonSouth.wasPressedThisFrame;
-			GamepadPlacementState.MainMouseButtonHeld = gamepad.buttonSouth.isPressed;
-			GamepadPlacementState.MainMouseButtonUp = gamepad.buttonSouth.wasReleasedThisFrame;
+			GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
+			GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
+			GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
 		}
 
 		// TreeCuttingAreaUnselectionTool and BuilderPriorityTool are declared `internal` in their own

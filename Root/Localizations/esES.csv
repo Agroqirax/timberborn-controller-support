@@ -1,7 +1,8 @@
-ID,Text,*Comment*
+ID,Text,Comment
 KeyBinding.ToggleSelectMode,Alternar modo de selección,
 KeyBinding.GamepadMoveDown,Navegar hacia abajo,
 KeyBinding.GamepadMoveLeft,Navegar hacia la izquierda,
 KeyBinding.GamepadMoveRight,Navegar hacia la derecha,
 KeyBinding.GamepadMoveUp,Navegar hacia arriba,
 KeyBindingGroup.GamePad,Mando,
+KeyBinding.GamepadCameraRotateModifier,Mantener para rotar la cámara,
