@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 
 - Rebindable keybind for the camera pan/rotate modifier (hold to rotate the camera with the stick instead of panning), default bound to right stick press
 - Gamepad support for throttling valve and fill valve sliders, using the same keybind as floodgate height
+- Localizations for all languages
+- Keybind listener now recognizes stick inputs
 
 ### Changed
 
