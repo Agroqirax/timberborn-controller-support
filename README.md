@@ -14,7 +14,7 @@ In some cases, most notable the building placement & planting tools, it was nece
 > [!IMPORTANT]
 > When a game reports that it doesn't support controller input steam automatically chooses the "**Keyboard (WASD) and Mouse**" layout which prevents Timberborn from receiving controller input.
 > To make the controller work, open the controller settings in steam, go to "**Templates**" and select & apply "**Gamepad with Mouse Trackpad**".
-> I'm also working on a custom layout. To try it go to "**Search**" and download "**Timberborn: Controller support for timberborn**" by "**Agroqirax**"
+> I'm also working on a custom layout. To try it go to "**Search**" and download "[**Timberborn: Controller support mod for timberborn**](steam://controllerconfig/1062090/3790637915)" by "**Agroqirax**"
 
 > [!TIP]
 > The controller won't work while Timberborn's mod manager is open on startup because mods haven't been loaded yet. This is expected. To skip the mod manager on steam go to timberborn, properties and add `-skipModManager` to the launch options field. If the game crashes or a mod causes problems, remove `-skipModManager` from Steam's launch options to restore the mod manager and disable mods.

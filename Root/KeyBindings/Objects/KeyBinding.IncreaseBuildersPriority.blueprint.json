@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/rightShoulder",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}
