@@ -99,6 +99,7 @@ namespace ControllerSupport
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly ConfirmReleaseGate _confirmGate;
+		private readonly GamepadMouseHandoff _handoff;
 
 		private bool _active;
 		private Vector3Int _cursor;
@@ -117,6 +118,7 @@ namespace ControllerSupport
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry);
 		}
 
 		public void Load()
@@ -185,32 +187,59 @@ namespace ControllerSupport
 			}
 
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
-			if (step != Vector2Int.zero)
+			var confirmDown = _inputService.IsKeyDown(ConfirmKey);
+
+			// See GamepadBuildingPlacementController.Update - the tool is engaged this frame
+			// regardless of which device ends up driving the cursor below, and
+			// GamepadNavigationInputProcessor reads this flag, not Active, to stand down for the
+			// tool's whole lifetime rather than only the frames the stick happens to be moving it.
+			GamepadPlacementState.ToolEngaged = true;
+
+			if (_handoff.Update(step, confirmDown))
 			{
-				_cursor += new Vector3Int(step.x, step.y, 0);
+				if (step != Vector2Int.zero)
+				{
+					_cursor += new Vector3Int(step.x, step.y, 0);
+				}
+
+				GamepadPlacementState.Active = true;
+				GamepadPlacementState.GridCursor = _cursor;
+
+				// See ConfirmReleaseGate: without this, the same physical Confirm press that just
+				// confirmed this tool's own bottom-bar button reads as a fresh action to the newly
+				// active tool - either directly, for a tool that starts (or, for the natural-resource
+				// brushes, repeats) on Held rather than Down, or via the stale MainMouseButtonUp on
+				// that press's eventual release, which is all AreaSelectionController-driven tools
+				// (planting, tree-cutting, priority, demolish, deletion) need to commit at the hover
+				// position with no real Down ever having happened this activation.
+				if (_confirmGate.ShouldSuppress())
+				{
+					GamepadPlacementState.MainMouseButtonDown = false;
+					GamepadPlacementState.MainMouseButtonHeld = false;
+					GamepadPlacementState.MainMouseButtonUp = false;
+				}
+				else
+				{
+					GamepadPlacementState.MainMouseButtonDown = confirmDown;
+					GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
+					GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+				}
+
+				return;
 			}
 
-			GamepadPlacementState.Active = true;
-			GamepadPlacementState.GridCursor = _cursor;
+			// See GamepadBuildingPlacementController.Update - the real mouse is driving this frame,
+			// stand fully down (not Clear()) and keep _cursor in sync with it for continuity.
+			GamepadPlacementState.Active = false;
+			GamepadPlacementState.MainMouseButtonDown = false;
+			GamepadPlacementState.MainMouseButtonHeld = false;
+			GamepadPlacementState.MainMouseButtonUp = false;
 
-			// See ConfirmReleaseGate: without this, the same physical Confirm press that just
-			// confirmed this tool's own bottom-bar button reads as a fresh action to the newly
-			// active tool - either directly, for a tool that starts (or, for the natural-resource
-			// brushes, repeats) on Held rather than Down, or via the stale MainMouseButtonUp on that
-			// press's eventual release, which is all AreaSelectionController-driven tools (planting,
-			// tree-cutting, priority, demolish, deletion) need to commit at the hover position with
-			// no real Down ever having happened this activation.
-			if (_confirmGate.ShouldSuppress())
+			var mouseRay = _cameraService.ScreenPointToRayInGridSpace(_inputService.MousePosition);
+			var mousePicked = _terrainPicker.PickTerrainCoordinates(mouseRay);
+			if (mousePicked.HasValue)
 			{
-				GamepadPlacementState.MainMouseButtonDown = false;
-				GamepadPlacementState.MainMouseButtonHeld = false;
-				GamepadPlacementState.MainMouseButtonUp = false;
-			}
-			else
-			{
-				GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
-				GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
-				GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+				_cursor = mousePicked.Value.Coordinates;
 			}
 		}
 
@@ -278,6 +307,7 @@ namespace ControllerSupport
 			_active = true;
 			_stepReader.Reset();
 			_confirmGate.Arm();
+			_handoff.Reset();
 
 			// See GamepadBuildingPlacementController.Activate for why this seeds through the camera via
 			// PickTerrainCoordinates instead of a fixed-height plane.

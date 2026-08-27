@@ -97,6 +97,7 @@ namespace ControllerSupport
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
+		private readonly GamepadMouseHandoff _handoff;
 
 		private RectangleBoundsDrawer _cursorBoundsDrawer;
 		private WaterOpacityToggle _waterOpacityToggle;
@@ -125,6 +126,7 @@ namespace ControllerSupport
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry);
 		}
 
 		public void Load()
@@ -236,6 +238,38 @@ namespace ControllerSupport
 			}
 
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
+
+			// See GamepadBuildingPlacementController.Update - engaged this frame regardless of which
+			// device ends up driving the cursor below; GamepadNavigationInputProcessor reads this
+			// flag, not Active, to stand down for select-mode's whole engagement rather than only the
+			// frames the stick happens to be moving it. No separate placement-style Confirm key here,
+			// so UIConfirm (already read below to drive Select/Unselect) doubles as the "gamepad
+			// action" signal - a bare press with the stick idle still means the player is using the
+			// gamepad.
+			GamepadPlacementState.ToolEngaged = true;
+
+			if (!_handoff.Update(step, _inputService.UIConfirm))
+			{
+				// The real mouse is driving this frame - stand fully down (not GamepadPlacementState.
+				// Clear(), which would also drop ToolEngaged above) and let the real, unmodified
+				// CursorTool.ProcessSelectObject/ProcessUnselectObject (a normal-priority processor
+				// that runs later this same frame) handle the actual click; CursorTool has no hover
+				// highlight of its own, so nothing needs to run in RollingHighlighter/
+				// _cursorBoundsDrawer's place. Still resync _cursor from the real mouse position so a
+				// later stick nudge resumes from there instead of the last gamepad-tracked cell.
+				GamepadPlacementState.Active = false;
+				_rollingHighlighter.UnhighlightAllPrimary();
+
+				var mouseRay = _cameraService.ScreenPointToRayInGridSpace(_inputService.MousePosition);
+				var mousePicked = _terrainPicker.PickTerrainCoordinates(mouseRay);
+				if (mousePicked.HasValue)
+				{
+					_cursor = mousePicked.Value.CoordinatesWithFaceOffset;
+				}
+
+				return;
+			}
+
 			if (step != Vector2Int.zero)
 			{
 				_cursor += new Vector3Int(step.x, step.y, 0);
@@ -346,6 +380,7 @@ namespace ControllerSupport
 		{
 			_engaged = true;
 			_stepReader.Reset();
+			_handoff.Reset();
 
 			// Seeds through the camera via PickTerrainCoordinates rather than a fixed-height plane -
 			// see GamepadBuildingPlacementController.Activate for why.

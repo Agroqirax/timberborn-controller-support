@@ -217,7 +217,7 @@ namespace ControllerSupport
 			// recorded for this scope to restore once the tool group row reappears. Clearing _scope too
 			// means the frame placement ends this re-enters fresh via EnterScope below rather than
 			// sitting with nothing highlighted until the next push.
-			if (GamepadPlacementState.Active)
+			if (GamepadPlacementState.ToolEngaged)
 			{
 				if (_scope != null && _selected != null)
 				{

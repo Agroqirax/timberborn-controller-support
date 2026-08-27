@@ -52,6 +52,7 @@ namespace ControllerSupport
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly ConfirmReleaseGate _confirmGate;
+		private readonly GamepadMouseHandoff _handoff;
 
 		private bool _active;
 		private Vector3Int _cursor;
@@ -68,6 +69,7 @@ namespace ControllerSupport
 			_panelTracker = panelTracker;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry);
 		}
 
 		public void Load()
@@ -128,30 +130,61 @@ namespace ControllerSupport
 			}
 
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
-			if (step != Vector2Int.zero)
+			var confirmDown = _inputService.IsKeyDown(ConfirmKey);
+
+			// The tool is engaged this frame regardless of which device ends up driving the cursor
+			// below - GamepadNavigationInputProcessor reads this one, not Active, so it keeps
+			// standing down for the whole time the tool is up rather than just the frames the stick
+			// happens to be the one moving it. See GamepadPlacementState.ToolEngaged.
+			GamepadPlacementState.ToolEngaged = true;
+
+			if (_handoff.Update(step, confirmDown))
 			{
-				_cursor += new Vector3Int(step.x, step.y, 0);
+				if (step != Vector2Int.zero)
+				{
+					_cursor += new Vector3Int(step.x, step.y, 0);
+				}
+
+				GamepadPlacementState.Active = true;
+				GamepadPlacementState.GridCursor = _cursor;
+
+				// See ConfirmReleaseGate: confirmed via Player.log that AreaSelectionController's own
+				// action-commit check only requires a hover ray to exist (true on essentially every
+				// idle frame) rather than a genuine prior Down, so the stale MainMouseButtonUp on the
+				// release tail of the same press that confirmed this building's bottom-bar button was
+				// enough to auto-place at the freshly center-seeded cursor with no real press ever
+				// happening.
+				if (_confirmGate.ShouldSuppress())
+				{
+					GamepadPlacementState.MainMouseButtonDown = false;
+					GamepadPlacementState.MainMouseButtonHeld = false;
+					GamepadPlacementState.MainMouseButtonUp = false;
+				}
+				else
+				{
+					GamepadPlacementState.MainMouseButtonDown = confirmDown;
+					GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
+					GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+				}
+
+				return;
 			}
 
-			GamepadPlacementState.Active = true;
-			GamepadPlacementState.GridCursor = _cursor;
+			// The real mouse is driving this frame - stand fully down (not Clear(), which would also
+			// drop ToolEngaged above) and let CameraServicePlacementPatch/InputServicePlacementPatch
+			// pass everything through to the real mouse untouched. Still keep _cursor in sync with
+			// wherever the mouse actually points, purely so a later stick nudge resumes from there
+			// instead of snapping back to the last gamepad-tracked cell.
+			GamepadPlacementState.Active = false;
+			GamepadPlacementState.MainMouseButtonDown = false;
+			GamepadPlacementState.MainMouseButtonHeld = false;
+			GamepadPlacementState.MainMouseButtonUp = false;
 
-			// See ConfirmReleaseGate: confirmed via Player.log that AreaSelectionController's own
-			// action-commit check only requires a hover ray to exist (true on essentially every idle
-			// frame) rather than a genuine prior Down, so the stale MainMouseButtonUp on the release
-			// tail of the same press that confirmed this building's bottom-bar button was enough to
-			// auto-place at the freshly center-seeded cursor with no real press ever happening.
-			if (_confirmGate.ShouldSuppress())
+			var mouseRay = _cameraService.ScreenPointToRayInGridSpace(_inputService.MousePosition);
+			var mousePicked = _terrainPicker.PickTerrainCoordinates(mouseRay);
+			if (mousePicked.HasValue)
 			{
-				GamepadPlacementState.MainMouseButtonDown = false;
-				GamepadPlacementState.MainMouseButtonHeld = false;
-				GamepadPlacementState.MainMouseButtonUp = false;
-			}
-			else
-			{
-				GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
-				GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
-				GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+				_cursor = mousePicked.Value.Coordinates;
 			}
 		}
 
@@ -160,6 +193,7 @@ namespace ControllerSupport
 			_active = true;
 			_stepReader.Reset();
 			_confirmGate.Arm();
+			_handoff.Reset();
 
 			// The one and only place a screen point is turned into a grid cell: seed the cursor at
 			// whatever screen-centre would show a mouse user. GamepadPlacementState.Active is still

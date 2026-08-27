@@ -9,6 +9,16 @@ namespace ControllerSupport
 	internal static class GamepadPlacementState
 	{
 		public static bool Active;
+
+		// Distinct from Active: Active means "the Harmony patches should synthesize gamepad-driven
+		// values this frame" and now flips false on a frame the real mouse is driving the cursor
+		// instead (see GamepadMouseHandoff). ToolEngaged means "one of the three cursor controllers
+		// is genuinely running its tool right now", regardless of which device drives that frame -
+		// GamepadNavigationInputProcessor reads this one to decide whether to stand down, since
+		// standing down only on Active would let it treat every mouse-driven placement frame as
+		// "nothing engaged" and highlight the bare HUD out from under an idle stick.
+		public static bool ToolEngaged;
+
 		public static Vector3Int GridCursor;
 		public static bool MainMouseButtonDown;
 		public static bool MainMouseButtonHeld;
@@ -34,6 +44,7 @@ namespace ControllerSupport
 		public static void Clear()
 		{
 			Active = false;
+			ToolEngaged = false;
 			MainMouseButtonDown = false;
 			MainMouseButtonHeld = false;
 			MainMouseButtonUp = false;
