@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.2.0.3] - 2026-08-27
+
 ### Added
 
 - Rebindable keybind for the camera pan/rotate modifier (hold to rotate the camera with the stick instead of panning), default bound to right stick press
@@ -45,6 +47,7 @@ All notable changes to this project will be documented in this file.
 
 - Initial release
 
-[unreleased]: https://github.com/agroqirax/timberborn-controller-support/compare/v1.1.2.0.2...HEAD
+[unreleased]: https://github.com/agroqirax/timberborn-controller-support/compare/v1.1.2.0.3...HEAD
+[1.1.2.0.3]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.3
 [1.1.2.0.2]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.2
 [1.1.2.0.1]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/1.1.2.0.1
