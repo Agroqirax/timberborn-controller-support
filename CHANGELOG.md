@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 - Gamepad UI cursor now correctly defaults to the select tool
 - Natural resource spawning/removal brushes no longer immediately apply the instant they were selected
-- Mouse/keyboard can now be used for building placement and all area tools alongside the controller
+- Mouse/keyboard can now be used for building placement and all area tools alongside the controller; the system cursor now hides while the gamepad is driving and reappears the instant the mouse moves
 
 ## [1.1.2.0.3] - 2026-08-27
 

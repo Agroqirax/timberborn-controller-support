@@ -41,11 +41,25 @@ namespace ControllerSupport
 	// for its own patch, converted from grid to world space via CoordinateSystem since
 	// Physics.Raycast (which the raycaster runs) only understands world space.
 	//
-	// GamepadPlacementState.Active is still set every engaged frame even though nothing here reads it
-	// back - it is the same "gamepad owns world input right now" signal the other two controllers
-	// publish, and GamepadNavigationInputProcessor already stands down on it, which is what stops the
-	// left stick driving bottom-bar/entity-panel navigation out from under this cursor while it is
-	// live.
+	// GamepadPlacementState.Active/ToolEngaged are still set every engaged frame even though nothing
+	// here reads Active back - it is the same "gamepad owns world input right now" signal the other
+	// two controllers publish, and GamepadNavigationInputProcessor already stands down on ToolEngaged,
+	// which is what stops the left stick driving bottom-bar/entity-panel navigation out from under
+	// this cursor while it is live.
+	//
+	// The box/cursor itself is deliberately gamepad-only, unlike GamepadBuildingPlacementController/
+	// GamepadAreaSelectionController: those two hand off cursor *position* to a real mouse mid-session
+	// because a mouse user has no other way to place a building or mark an area once the tool is open.
+	// Select mode is different - the player can always click an object with the plain mouse without
+	// ever touching the gamepad's own box, so the box stays wherever the stick last left it regardless
+	// of what the mouse does; it is never repositioned or hidden in response to mouse movement.
+	//
+	// A real mouse click is still let through, though - see the MouseLeftKey handling in Update() -
+	// since hiding the cursor for select mode's entire engagement, with no way to click anything with
+	// it even though the player can still reach the bottom bar/entity panel by hand, read as a bug in
+	// its own right the first time it shipped. GamepadMouseHandoff is reused here purely for its
+	// cursor-visibility side effect (Cursor.visible tracking recent device activity); its returned
+	// control decision is ignored, since the box's *position* is never handed to the mouse.
 	//
 	// CursorTool is also the game's default tool - active whenever nothing else is - so unlike an
 	// area tool that only becomes ActiveTool when the player deliberately opens it, ActiveTool alone
@@ -67,6 +81,12 @@ namespace ControllerSupport
 		// Matches the Id in this mod's own KeyBinding.ToggleSelectMode.blueprint.json - a keybind this
 		// mod defines from scratch (no vanilla equivalent), primary-bound to <Gamepad>/select.
 		private const string ToggleSelectModeKey = "ToggleSelectMode";
+
+		// Matches InputService's own MouseLeftKey constant, same as GamepadMouseHandoff - read
+		// directly off KeyBindingRegistry rather than through InputService.MainMouseButtonDown so a
+		// real click can be detected before this frame's own GamepadPlacementState write decides
+		// whether that getter is even patched.
+		private const string MouseLeftKey = "MouseLeft";
 
 		// Not game colours - Timberborn's own SelectionColorsSpec.SelectionToolHighlight is a dark
 		// red (0.55, 0.03, 0.05), verified against Blueprints.zip, not amber at all. Picked these to
@@ -126,7 +146,7 @@ namespace ControllerSupport
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService);
 		}
 
 		public void Load()
@@ -145,6 +165,7 @@ namespace ControllerSupport
 			_eventBus.Unregister(this);
 			_rollingHighlighter.UnhighlightAllPrimary();
 			_waterOpacityToggle.ShowWater();
+			_inputService.ShowCursor();
 			GamepadPlacementState.Clear();
 		}
 
@@ -207,6 +228,10 @@ namespace ControllerSupport
 			if (_panelTracker.HasStackedPanel)
 			{
 				GamepadPlacementState.Clear();
+
+				// The dialog needs the real cursor visible to be clickable - re-hidden below once
+				// engagement resumes on whatever frame the dialog closes.
+				_inputService.ShowCursor();
 				return;
 			}
 
@@ -239,36 +264,10 @@ namespace ControllerSupport
 
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 
-			// See GamepadBuildingPlacementController.Update - engaged this frame regardless of which
-			// device ends up driving the cursor below; GamepadNavigationInputProcessor reads this
-			// flag, not Active, to stand down for select-mode's whole engagement rather than only the
-			// frames the stick happens to be moving it. No separate placement-style Confirm key here,
-			// so UIConfirm (already read below to drive Select/Unselect) doubles as the "gamepad
-			// action" signal - a bare press with the stick idle still means the player is using the
-			// gamepad.
-			GamepadPlacementState.ToolEngaged = true;
-
-			if (!_handoff.Update(step, _inputService.UIConfirm))
-			{
-				// The real mouse is driving this frame - stand fully down (not GamepadPlacementState.
-				// Clear(), which would also drop ToolEngaged above) and let the real, unmodified
-				// CursorTool.ProcessSelectObject/ProcessUnselectObject (a normal-priority processor
-				// that runs later this same frame) handle the actual click; CursorTool has no hover
-				// highlight of its own, so nothing needs to run in RollingHighlighter/
-				// _cursorBoundsDrawer's place. Still resync _cursor from the real mouse position so a
-				// later stick nudge resumes from there instead of the last gamepad-tracked cell.
-				GamepadPlacementState.Active = false;
-				_rollingHighlighter.UnhighlightAllPrimary();
-
-				var mouseRay = _cameraService.ScreenPointToRayInGridSpace(_inputService.MousePosition);
-				var mousePicked = _terrainPicker.PickTerrainCoordinates(mouseRay);
-				if (mousePicked.HasValue)
-				{
-					_cursor = mousePicked.Value.CoordinatesWithFaceOffset;
-				}
-
-				return;
-			}
+			// Cursor-visibility side effect only - see the class comment above for why the returned
+			// control decision is ignored here. UIConfirm doubles as the "gamepad action" signal since
+			// this controller has no separate placement-style Confirm key.
+			_handoff.Update(step, _inputService.UIConfirm);
 
 			if (step != Vector2Int.zero)
 			{
@@ -281,11 +280,27 @@ namespace ControllerSupport
 			// way a real mouse cursor (and TryPickSelectable's own top-down ray) do.
 			RefreshCursorHeight();
 
-			GamepadPlacementState.Active = true;
+			GamepadPlacementState.ToolEngaged = true;
 			GamepadPlacementState.GridCursor = _cursor;
-			GamepadPlacementState.MainMouseButtonDown = false;
-			GamepadPlacementState.MainMouseButtonHeld = false;
-			GamepadPlacementState.MainMouseButtonUp = false;
+
+			// A genuine real mouse click this frame is let through untouched to the real, unmodified
+			// CursorTool.ProcessSelectObject (a normal-priority processor running later this same
+			// frame) instead of being forced to false like every other frame below - see the class
+			// comment above for why. Active false for just this one frame is enough: CameraService's
+			// ray patch is irrelevant here (this controller builds its own ray by hand, never through
+			// CameraService), so the only other thing Active gates is MouseOverUI, which needs to read
+			// real too - a click landing on a UI element must not also try to select whatever the
+			// gamepad's box happens to be sitting on. Every other frame keeps forcing
+			// MainMouseButtonDown/Held/Up false so this controller's own gamepad-driven UIConfirm below
+			// is the only thing that can select/deselect through it.
+			var mouseClickDown = _keyBindingRegistry.IsDown(MouseLeftKey);
+			GamepadPlacementState.Active = !mouseClickDown;
+			if (!mouseClickDown)
+			{
+				GamepadPlacementState.MainMouseButtonDown = false;
+				GamepadPlacementState.MainMouseButtonHeld = false;
+				GamepadPlacementState.MainMouseButtonUp = false;
+			}
 
 			var hasTarget = TryPickSelectable(out var selectable);
 			if (hasTarget)
@@ -406,12 +421,14 @@ namespace ControllerSupport
 			_engaged = false;
 			_rollingHighlighter.UnhighlightAllPrimary();
 			_waterOpacityToggle.ShowWater();
+			_inputService.ShowCursor();
 			GamepadPlacementState.Clear();
 		}
 
 		private void ReportFailure(Exception e)
 		{
 			GamepadPlacementState.Clear();
+			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;
 			if (now < _nextFailureLogTime)

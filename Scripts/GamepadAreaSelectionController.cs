@@ -118,7 +118,7 @@ namespace ControllerSupport
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService);
 		}
 
 		public void Load()
@@ -147,6 +147,7 @@ namespace ControllerSupport
 		public void Unload()
 		{
 			GamepadPlacementState.Clear();
+			_inputService.ShowCursor();
 		}
 
 		public void ProcessInput()
@@ -178,6 +179,10 @@ namespace ControllerSupport
 			if (_panelTracker.HasStackedPanel)
 			{
 				GamepadPlacementState.Clear();
+
+				// The dialog needs the real cursor visible to be clickable - re-hidden by _handoff on
+				// whatever frame the dialog closes and the gamepad resumes driving.
+				_inputService.ShowCursor();
 				return;
 			}
 
@@ -331,11 +336,13 @@ namespace ControllerSupport
 
 			_active = false;
 			GamepadPlacementState.Clear();
+			_inputService.ShowCursor();
 		}
 
 		private void ReportFailure(Exception e)
 		{
 			GamepadPlacementState.Clear();
+			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;
 			if (now < _nextFailureLogTime)
