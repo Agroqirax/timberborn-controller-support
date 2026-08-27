@@ -4,7 +4,7 @@ This mod adds controller support to Timberborn, including support for navigating
 
 Most of the game can be played with a controller, although some areas still require a mouse or keyboard. Building placement and other cursor-based tools have been redesigned to work with controller input rather than mouse input.
 
-In some cases, most notable the building placement & planting tools, it was necessary to completely remove mouse input so controllers work properly. Aside from this case the game largely remains usable with a keyboard and mouse.
+Keyboard/mouse and controller input can be used simultaniously.
 
 > [!NOTE]
 > This is still very early and really buggy. Please submit bug reports on the discord in `#🚂individual-mods > 🎮 Controller Support` or on [github](https://github.com/agroqirax/timberborn-controller-support/issues).
