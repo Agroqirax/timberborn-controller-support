@@ -292,7 +292,7 @@ namespace ControllerSupport
 			// restore onto and the first push simply starts from the top - an acceptable miss.
 			NavigationCandidates.Collect(_scope, _candidates);
 
-			var restored = _memory.Restore(_scope, _candidates);
+			var restored = _memory.Restore(_scope, _candidates) ?? ResolveBottomBarOrDialogDefault();
 
 			// With no history to go on: the bare HUD starts on the cursor tool rather than whatever
 			// happens to sit top-left, since that is the tool the player almost always wants next. A
@@ -302,9 +302,19 @@ namespace ControllerSupport
 			// player to push the stick first meant arriving in a scene with nothing highlighted while A
 			// would still press whatever the panel considers its default - the cursor was there, just
 			// invisible.
-			restored ??= BottomBarNavigation.DefaultTool(_candidates)
-				?? DialogDefaultAction.Find(_candidates)
-				?? SpatialNavigator.First(_candidates);
+			//
+			// On the bare HUD (no stacked panel) SpatialNavigator.First is deliberately not tried yet
+			// even when it would find something: MapEditor's Top-left/Top-right HUD pieces (FilePanel,
+			// the simulation-speed panel, the weather panel) can finish loading and laying out a frame
+			// or two before BottomBarPanel does, so grabbing whatever is available immediately locks
+			// onto FilePanel's SaveButton - there is no MainSection among the candidates *yet*, not
+			// because this scope will never have one. TryInitialSelection's retry loop exists exactly
+			// for this "not laid out yet" gap; a stacked dialog/menu has no such race (it will never
+			// grow a MainSection of its own), so it still resolves immediately below.
+			if (restored == null && _panelTracker.HasStackedPanel)
+			{
+				restored = SpatialNavigator.First(_candidates);
+			}
 
 			if (restored != null)
 			{
@@ -315,6 +325,11 @@ namespace ControllerSupport
 
 			// Nothing to land on yet because the panel has not been laid out. Keep looking for a while.
 			_initialSelectionFrames = InitialSelectionFrames;
+		}
+
+		private VisualElement ResolveBottomBarOrDialogDefault()
+		{
+			return BottomBarNavigation.DefaultTool(_candidates) ?? DialogDefaultAction.Find(_candidates);
 		}
 
 		private void Move(Vector2Int direction)
@@ -362,9 +377,16 @@ namespace ControllerSupport
 			_initialSelectionFrames--;
 			RefreshCandidates();
 
-			var first = BottomBarNavigation.DefaultTool(_candidates)
-				?? DialogDefaultAction.Find(_candidates)
-				?? SpatialNavigator.First(_candidates);
+			// Same reasoning as EnterScope: don't settle for SpatialNavigator.First on the bare HUD
+			// while there is still time left to wait for the bottom bar to finish mounting, or a
+			// scene where it mounts later than its other HUD pieces (MapEditor's FilePanel/simulation
+			// panel) permanently locks onto one of those instead of the cursor tool.
+			var first = ResolveBottomBarOrDialogDefault();
+			if (first == null && (_panelTracker.HasStackedPanel || _initialSelectionFrames <= 0))
+			{
+				first = SpatialNavigator.First(_candidates);
+			}
+
 			if (first == null)
 			{
 				return;

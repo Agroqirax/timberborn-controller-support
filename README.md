@@ -88,7 +88,7 @@ The updated building placement, tree cutting area, planting, demolishing & prior
 
 ## Known issues
 
-- Terrain editing in the map editor still requires a mouse.
+- 3D terrain sculpting in the map editor still requires a mouse.
 - Key rebind listener cannot bind joystick movements
 
 [controller-layout]: https://www.padcrafter.com/?templates=Menus%7CGame%7CBuild+%2F+Select+mode&col=%23242424%2C%23606A6E%2C%23FFFFFF&outline=0&plat=0&timestamp=1787590118463&dpadUp=Navigate+Up%7CNavigate+UI+Up%7CMove+Selection+Up&dpadRight=Navigate+Right%7CNavigate+UI+Right%7CMove+Selection+Right&dpadLeft=Navigate+Left%7CNavigate+UI+Left%7CMove+Selection+Left&dpadDown=Navigate+Down%7CNavigate+UI+Down%7CMove+Selection+Down&leftStick=Navigate%7CNavigate+UI%7CMove+selection&backButton=%7CToggle+select+mode%7CExit+select+mode&startButton=%7CPause+building&rightStick=Scroll%7CPan+camera%7CPan+Camera&aButton=Confirm+%2F+Select%7CConfirm+%2F+Select%7CPlace&bButton=Cancel+%2F+Back%7CCancel+%2F+Back%7CCancel+%2F+exit&rightStickClick=%7CTilt%2FRotate+camera%7CTilt%2FRotate+Camera&xButton=%7CDelete+building&yButton=%7CUnique+building+action%7CFlip+building&rightTrigger=%7CZoom+out%7CZoom+out&leftTrigger=%7CZoom+in%7CZoom+in&leftBumper=%7CDecrease+workplace+priority+%2F+floodgate+height%7CRotate+left&rightBumper=%7CIncrease+workplace+priority+%2F+floodgate+height%7CRotate+right

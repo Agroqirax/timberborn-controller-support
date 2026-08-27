@@ -8,6 +8,8 @@ using Timberborn.DemolishingUI;
 using Timberborn.ForestryUI;
 using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
+using Timberborn.MapEditorBrushesUI;
+using Timberborn.MapEditorNaturalResourcesUI;
 using Timberborn.PlantingUI;
 using Timberborn.Rendering;
 using Timberborn.SingletonSystem;
@@ -21,10 +23,15 @@ namespace ControllerSupport
 	// Drives every non-building area-selection tool with the gamepad - planting and un-planting
 	// (CancelPlantingTool is the eraser shared by the Fields and Forestry/natural-resource planting
 	// groups - two bottom-bar entry points for the one tool), tree-cutting-area marking/unmarking,
-	// builder priority, marking/unmarking buildings for demolition, and deleting buildings/objects/
-	// recovered-good stacks - the same way GamepadBuildingPlacementController drives
-	// BlockObjectTool: the left stick/d-pad nudges a grid cursor one voxel at a time, A presses/holds/
-	// releases exactly like a mouse click-drag-release.
+	// builder priority, marking/unmarking buildings for demolition, deleting buildings/objects/
+	// recovered-good stacks, and - MapEditor only - the absolute/relative terrain height brushes and
+	// the natural-resource spawn/removal brushes - the same way GamepadBuildingPlacementController
+	// drives BlockObjectTool: the left stick/d-pad nudges a grid cursor one voxel at a time, A
+	// presses/holds/releases exactly like a mouse click-drag-release.
+	//
+	// SculptingTerrainBrushTool is deliberately not in this list: it sculpts in 3D rather than
+	// snapping to a single terrain height per cell, which this grid-cursor bridge cannot express, and
+	// is left for a future dedicated 3D cursor instead.
 	//
 	// All of these tools reach AreaSelectionController through a different picker than BlockObjectTool
 	// does (SelectionToolProcessor, AreaBlockObjectPicker or AreaBlockObjectAndTerrainPicker rather than
@@ -77,6 +84,7 @@ namespace ControllerSupport
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
+		private readonly ConfirmReleaseGate _confirmGate;
 
 		private bool _active;
 		private Vector3Int _cursor;
@@ -94,6 +102,7 @@ namespace ControllerSupport
 			_markerDrawerFactory = markerDrawerFactory;
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
+			_confirmGate = new ConfirmReleaseGate(inputService);
 		}
 
 		public void Load()
@@ -169,9 +178,24 @@ namespace ControllerSupport
 
 			GamepadPlacementState.Active = true;
 			GamepadPlacementState.GridCursor = _cursor;
-			GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
-			GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
-			GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+
+			// See ConfirmReleaseGate: without this, the same physical Confirm press that just
+			// confirmed this tool's own bottom-bar button - still "held" the first frame this
+			// controller sees the newly active tool - reads as a fresh action to a tool that starts
+			// (or, for the natural-resource brushes, repeats) on Held rather than Down, applying it
+			// once at the freshly-seeded cursor before the player ever meant to.
+			if (_confirmGate.ShouldSuppress())
+			{
+				GamepadPlacementState.MainMouseButtonDown = false;
+				GamepadPlacementState.MainMouseButtonHeld = false;
+				GamepadPlacementState.MainMouseButtonUp = false;
+			}
+			else
+			{
+				GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
+				GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
+				GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+			}
 		}
 
 		// TreeCuttingAreaUnselectionTool and BuilderPriorityTool are declared `internal` in their own
@@ -195,7 +219,9 @@ namespace ControllerSupport
 		private static bool IsAreaSelectionTool(ITool tool)
 		{
 			if (tool is PlantingTool || tool is CancelPlantingTool || tool is TreeCuttingAreaSelectionTool
-				|| tool is DemolishableSelectionTool || tool is DemolishableUnselectionTool)
+				|| tool is DemolishableSelectionTool || tool is DemolishableUnselectionTool
+				|| tool is AbsoluteTerrainHeightBrushTool || tool is RelativeTerrainHeightBrushTool
+				|| tool is NaturalResourceSpawningBrushTool || tool is NaturalResourceRemovalBrushTool)
 			{
 				return true;
 			}
@@ -221,6 +247,7 @@ namespace ControllerSupport
 		{
 			_active = true;
 			_stepReader.Reset();
+			_confirmGate.Arm();
 
 			// See GamepadBuildingPlacementController.Activate for why this seeds through the camera via
 			// PickTerrainCoordinates instead of a fixed-height plane.

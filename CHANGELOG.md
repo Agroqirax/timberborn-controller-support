@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Gamepad support for the map editor's absolute/relative terrain height brushes and natural resource spawning/removal brushes
+
+### Fixed
+
+- Gamepad UI cursor now correctly defaults to the select tool
+- Natural resource spawning/removal brushes no longer immediately apply the instant they were selected
+
 ## [1.1.2.0.3] - 2026-08-27
 
 ### Added

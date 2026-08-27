@@ -51,6 +51,7 @@ namespace ControllerSupport
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
+		private readonly ConfirmReleaseGate _confirmGate;
 
 		private bool _active;
 		private Vector3Int _cursor;
@@ -66,6 +67,7 @@ namespace ControllerSupport
 			_terrainPicker = terrainPicker;
 			_panelTracker = panelTracker;
 			_keyBindingRegistry = keyBindingRegistry;
+			_confirmGate = new ConfirmReleaseGate(inputService);
 		}
 
 		public void Load()
@@ -133,15 +135,31 @@ namespace ControllerSupport
 
 			GamepadPlacementState.Active = true;
 			GamepadPlacementState.GridCursor = _cursor;
-			GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
-			GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
-			GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+
+			// See ConfirmReleaseGate: BlockObjectTool's own AreaSelectionController only starts a
+			// placement on Down (a one-frame edge, so the same physical press that confirmed this
+			// building's bottom-bar button can't retrigger it) and commits on Up, so this is
+			// defensive rather than fixing an observed bug here - but nothing here can assume that
+			// stays true for every ITool this bridge might ever drive.
+			if (_confirmGate.ShouldSuppress())
+			{
+				GamepadPlacementState.MainMouseButtonDown = false;
+				GamepadPlacementState.MainMouseButtonHeld = false;
+				GamepadPlacementState.MainMouseButtonUp = false;
+			}
+			else
+			{
+				GamepadPlacementState.MainMouseButtonDown = _inputService.IsKeyDown(ConfirmKey);
+				GamepadPlacementState.MainMouseButtonHeld = _inputService.IsKeyHeld(ConfirmKey);
+				GamepadPlacementState.MainMouseButtonUp = _inputService.IsKeyUp(ConfirmKey);
+			}
 		}
 
 		private void Activate()
 		{
 			_active = true;
 			_stepReader.Reset();
+			_confirmGate.Arm();
 
 			// The one and only place a screen point is turned into a grid cell: seed the cursor at
 			// whatever screen-centre would show a mouse user. GamepadPlacementState.Active is still

@@ -1,0 +1,7 @@
+{
+  "SecondaryInputBindingSpec": {
+    "Path": "<Gamepad>/dpad/down",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}
