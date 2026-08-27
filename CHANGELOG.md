@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.2.0.4] - 2026-08-27
+
 ### Added
 
 - Gamepad support for the map editor's absolute/relative terrain height brushes and natural resource spawning/removal brushes
@@ -14,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Gamepad UI cursor now correctly defaults to the select tool
 - Natural resource spawning/removal brushes no longer immediately apply the instant they were selected
 - Mouse/keyboard can now be used for building placement and all area tools alongside the controller; the system cursor now hides while the gamepad is driving and reappears the instant the mouse moves
+- Shadows no longer blur while using certain tools
 
 ## [1.1.2.0.3] - 2026-08-27
 
@@ -59,6 +62,7 @@ All notable changes to this project will be documented in this file.
 - Initial release
 
 [unreleased]: https://github.com/agroqirax/timberborn-controller-support/compare/v1.1.2.0.3...HEAD
+[1.1.2.0.4]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.4
 [1.1.2.0.3]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.3
 [1.1.2.0.2]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.2
 [1.1.2.0.1]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/1.1.2.0.1
