@@ -136,11 +136,11 @@ namespace ControllerSupport
 			GamepadPlacementState.Active = true;
 			GamepadPlacementState.GridCursor = _cursor;
 
-			// See ConfirmReleaseGate: BlockObjectTool's own AreaSelectionController only starts a
-			// placement on Down (a one-frame edge, so the same physical press that confirmed this
-			// building's bottom-bar button can't retrigger it) and commits on Up, so this is
-			// defensive rather than fixing an observed bug here - but nothing here can assume that
-			// stays true for every ITool this bridge might ever drive.
+			// See ConfirmReleaseGate: confirmed via Player.log that AreaSelectionController's own
+			// action-commit check only requires a hover ray to exist (true on essentially every idle
+			// frame) rather than a genuine prior Down, so the stale MainMouseButtonUp on the release
+			// tail of the same press that confirmed this building's bottom-bar button was enough to
+			// auto-place at the freshly center-seeded cursor with no real press ever happening.
 			if (_confirmGate.ShouldSuppress())
 			{
 				GamepadPlacementState.MainMouseButtonDown = false;

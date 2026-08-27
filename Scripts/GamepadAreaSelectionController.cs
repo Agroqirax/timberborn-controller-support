@@ -180,10 +180,12 @@ namespace ControllerSupport
 			GamepadPlacementState.GridCursor = _cursor;
 
 			// See ConfirmReleaseGate: without this, the same physical Confirm press that just
-			// confirmed this tool's own bottom-bar button - still "held" the first frame this
-			// controller sees the newly active tool - reads as a fresh action to a tool that starts
-			// (or, for the natural-resource brushes, repeats) on Held rather than Down, applying it
-			// once at the freshly-seeded cursor before the player ever meant to.
+			// confirmed this tool's own bottom-bar button reads as a fresh action to the newly
+			// active tool - either directly, for a tool that starts (or, for the natural-resource
+			// brushes, repeats) on Held rather than Down, or via the stale MainMouseButtonUp on that
+			// press's eventual release, which is all AreaSelectionController-driven tools (planting,
+			// tree-cutting, priority, demolish, deletion) need to commit at the hover position with
+			// no real Down ever having happened this activation.
 			if (_confirmGate.ShouldSuppress())
 			{
 				GamepadPlacementState.MainMouseButtonDown = false;
