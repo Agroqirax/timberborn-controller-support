@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Optional support for the Cutter Tool and Grid Cutting workshop mods' tree-cutting tools
+
 ## [1.1.2.0.4] - 2026-08-27
 
 ### Added

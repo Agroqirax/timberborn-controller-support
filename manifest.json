@@ -13,6 +13,12 @@
   "OptionalMods": [
     {
       "Id": "kulesz.FPPCamera"
+    },
+    {
+      "Id": "Cordial.Mods.CutterTool"
+    },
+    {
+      "Id": "SourcePulp.GridCutting"
     }
   ]
 }

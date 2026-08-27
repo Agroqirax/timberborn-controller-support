@@ -22,12 +22,13 @@ namespace ControllerSupport
 {
 	// Drives every non-building area-selection tool with the gamepad - planting and un-planting
 	// (CancelPlantingTool is the eraser shared by the Fields and Forestry/natural-resource planting
-	// groups - two bottom-bar entry points for the one tool), tree-cutting-area marking/unmarking,
-	// builder priority, marking/unmarking buildings for demolition, deleting buildings/objects/
-	// recovered-good stacks, and - MapEditor only - the absolute/relative terrain height brushes and
-	// the natural-resource spawn/removal brushes - the same way GamepadBuildingPlacementController
-	// drives BlockObjectTool: the left stick/d-pad nudges a grid cursor one voxel at a time, A
-	// presses/holds/releases exactly like a mouse click-drag-release.
+	// groups - two bottom-bar entry points for the one tool), tree-cutting-area marking/unmarking
+	// (base game, plus the optional Cordial.Mods.CutterTool and SourcePulp.GridCutting workshop mods -
+	// see the InternalAreaSelectionToolTypeNames comment below), builder priority, marking/unmarking
+	// buildings for demolition, deleting buildings/objects/recovered-good stacks, and - MapEditor only -
+	// the absolute/relative terrain height brushes and the natural-resource spawn/removal brushes - the
+	// same way GamepadBuildingPlacementController drives BlockObjectTool: the left stick/d-pad nudges a
+	// grid cursor one voxel at a time, A presses/holds/releases exactly like a mouse click-drag-release.
 	//
 	// SculptingTerrainBrushTool is deliberately not in this list: it sculpts in 3D rather than
 	// snapping to a single terrain height per cell, which this grid-cursor bridge cannot express, and
@@ -266,11 +267,40 @@ namespace ControllerSupport
 		// Root/KeyBindings/Objects/KeyBinding.Rotate*.blueprint.json) - so folding it in here needs
 		// no FPP-specific code at all, just this line, plus the CameraServicePlacementPatch world-
 		// space companion patch below that CursorCoordinatesPicker's BlockObject-hit branch needs.
+		// Cordial.Mods.CutterTool.Scripts.CutterToolService (workshop 3334584916, one configurable
+		// tree-cutting tool - pattern/species/stump/sapling/clear-cut options live in a side panel) and
+		// SourcePulp.GridCutting.PatternCuttingTool (workshop 3739849811, one type instantiated once per
+		// pattern - Checkerboard/Heavy/Sparse/StripesHorizontal/StripesVertical/Thin all show up as this
+		// same type, so the one string entry covers all of them) both decompile down to exactly the
+		// TreeCuttingAreaSelectionTool shape: they build a Timberborn.SelectionToolSystem.
+		// SelectionToolProcessor from the injected SelectionToolProcessorFactory and drive Enter/Exit
+		// through it, so they inherit AreaSelectionController for free the same way every other tool in
+		// this list does - nothing tool-specific needed beyond recognising them here.
+		//
+		// This is also the answer to "can this list be generated instead of hand-maintained": every tool
+		// above reaches AreaSelectionController by a different route (SelectionToolProcessor for most,
+		// a bespoke MainMouseButtonDown/ScreenPointToRayInGridSpace read for the MapEditor brushes), and
+		// there is no common base type or marker interface across them - ITool is the only thing they all
+		// share, and every other ITool in the game (dialogs, camera tools, single-object pickers) is that
+		// too. Reflecting for a SelectionToolProcessor-typed field would catch most of this list but miss
+		// the brushes entirely and would just as happily catch SculptingTerrainBrushTool, which is
+		// deliberately excluded (see the class comment) - a field-shape probe can't express "except this
+		// one". A hand-maintained list matched by name, extended the same way for each new mod, is the
+		// actual generalization already in place here.
+		//
+		// CutterToolPanel (CutterTool's option panel) is a HUD-style absolute item, not a stacked panel,
+		// so _panelTracker.HasStackedPanel never sees it and it stays on screen while the tool is active -
+		// but GamepadNavigationInputProcessor stands down entirely while ToolEngaged (see
+		// GamepadPlacementState.ToolEngaged), so its toggles are reachable by mouse only for now. No base
+		// game tool pairs an always-visible side panel with area-selection cursor driving, so there's no
+		// existing pattern here to extend; leaving it mouse-only rather than inventing one.
 		private static readonly HashSet<string> InternalAreaSelectionToolTypeNames = new HashSet<string>
 		{
 			"Timberborn.ForestryUI.TreeCuttingAreaUnselectionTool",
 			"Timberborn.BuilderPrioritySystemUI.BuilderPriorityTool",
 			"FPPCamera.FPPCameraActivationTool",
+			"Cordial.Mods.CutterTool.Scripts.CutterToolService",
+			"SourcePulp.GridCutting.PatternCuttingTool",
 		};
 
 		// PlantingTool, TreeCuttingAreaSelectionTool and the two Demolishable selection tools are
