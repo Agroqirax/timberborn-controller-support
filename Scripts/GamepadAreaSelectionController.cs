@@ -52,7 +52,21 @@ namespace ControllerSupport
 	// different raycast-origin patch, not this one. And dev-mode-only tools (WaterHeightBrushTool,
 	// BeaverGeneratorTool, BotGeneratorTool), which aren't reachable in normal play.
 	//
-	// No rotate/flip: none of these tools have an orientation to change.
+	// FPPCameraActivationTool (optional kulesz.FPPCamera mod - see the InternalAreaSelectionToolTypeNames
+	// entry below) is a related-but-different case: it doesn't go through AreaSelectionController at all
+	// either, but unlike the SelectableObjectRaycaster-only tools above, it reaches world/grid space
+	// entirely through Timberborn.CursorToolSystem.CursorCoordinatesPicker, whose two branches both
+	// bottom out in CameraService (ScreenPointToRayInGridSpace for the terrain fallback,
+	// ScreenPointToRayInWorldSpace via SelectableObjectRaycaster for the "standing on a finished
+	// floor/path/stackable" branch) - both already patched by CameraServicePlacementPatch whenever
+	// GamepadPlacementState.Active. So this one is covered for free, just by counting as an active tool
+	// here; it needs no picker-specific code of its own.
+	//
+	// Rotate/flip: every other tool here has no orientation to change, but FPPCameraActivationTool does
+	// (it places a directional arrow) - it already reads RotateClockwise/RotateCounterclockwise straight
+	// off InputService itself rather than through AreaSelectionController, and those are already
+	// gamepad-bound (Root/KeyBindings/Objects/KeyBinding.Rotate*.blueprint.json), so that also needs
+	// nothing from this class.
 	//
 	// Doesn't draw its own cursor marker - a separate reticle stacked on top of whatever the tool
 	// itself renders turned out to be the wrong fix for "the cursor disappears over an empty cell".
@@ -205,10 +219,24 @@ namespace ControllerSupport
 		// reachable from outside. Matched by name rather than skipped, the same as every other tool in
 		// this list, rather than leaving half of a symmetric pair (selection but not unselection,
 		// planting but not priority) without gamepad support.
+		//
+		// FPPCameraActivationTool is here for a different reason: it belongs to the optional
+		// kulesz.FPPCamera mod, so its assembly may not even be loaded. A string match against
+		// whatever ITool happens to be active costs nothing and never touches the type if that
+		// assembly isn't present - unlike FPPCameraAnalogPatch.cs, which has to reach into a live
+		// instance's private fields and therefore does need the type resolved, this one doesn't.
+		// It's the tool FPPCameraActivationButton opens to place the "where FPP will start" arrow;
+		// it already reads MouseOverUI/MainMouseButtonDown and CursorCoordinatesPicker like every
+		// other tool here, and already has its own rotate handling via the RotateClockwise/
+		// RotateCounterclockwise keybindings (already gamepad-bound, see
+		// Root/KeyBindings/Objects/KeyBinding.Rotate*.blueprint.json) - so folding it in here needs
+		// no FPP-specific code at all, just this line, plus the CameraServicePlacementPatch world-
+		// space companion patch below that CursorCoordinatesPicker's BlockObject-hit branch needs.
 		private static readonly HashSet<string> InternalAreaSelectionToolTypeNames = new HashSet<string>
 		{
 			"Timberborn.ForestryUI.TreeCuttingAreaUnselectionTool",
 			"Timberborn.BuilderPrioritySystemUI.BuilderPriorityTool",
+			"FPPCamera.FPPCameraActivationTool",
 		};
 
 		// PlantingTool, TreeCuttingAreaSelectionTool and the two Demolishable selection tools are

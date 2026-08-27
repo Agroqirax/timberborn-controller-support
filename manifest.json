@@ -9,5 +9,10 @@
       "Id": "Harmony",
       "MinimumVersion": "2.4.1"
     }
+  ],
+  "OptionalMods": [
+    {
+      "Id": "kulesz.FPPCamera"
+    }
   ]
 }
