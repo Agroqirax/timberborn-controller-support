@@ -23,6 +23,18 @@ namespace ControllerSupport
 
 		private static readonly long ClickEventTypeId = EventBase<ClickEvent>.TypeId();
 
+		// Timberborn's own controls always wire clicks through RegisterCallback<ClickEvent> (see
+		// HasClickHandler above), but a Button is stock UI Toolkit underneath, and plenty of UI-framework
+		// mods (BuildingBlueprints' dialogs go through TimberUi's DialogBoxElement.AddCloseButton, for
+		// one) use the native `Button.clicked` event instead - wired through the Clickable manipulator's
+		// own pointer-down/up handling, which never touches ClickEvent at all. HasClickHandler alone
+		// therefore reads such a button as inert, NavigationCandidates.IsInertButton skips it, and it's
+		// never reachable - the mod's own dialog close ("X") buttons specifically. `clicked` is a
+		// field-like event, so its backing field is `private` regardless of the event's own `public`
+		// accessibility - BindingFlags.NonPublic is required even though Clickable itself is public.
+		private static readonly FieldInfo ClickableClickedField =
+			typeof(Clickable).GetField("clicked", BindingFlags.Instance | BindingFlags.NonPublic);
+
 		private static FieldInfo _bubbleUpCallbacksField;
 		private static FieldInfo _callbackListField;
 		private static FieldInfo _callbackArrayField;
@@ -119,6 +131,39 @@ namespace ControllerSupport
 			}
 
 			return false;
+		}
+
+		// True when a Button has at least one subscriber on its native `clicked` event - the sibling
+		// check to HasClickHandler for buttons that skip ClickEvent entirely (see ClickableClickedField).
+		private static Clickable GetClickable(VisualElement element)
+		{
+			return (element as Button)?.clickable;
+		}
+
+		public static bool HasClickableDelegate(VisualElement element)
+		{
+			if (ClickableClickedField == null)
+			{
+				return false;
+			}
+
+			var clickable = GetClickable(element);
+			return clickable != null && ClickableClickedField.GetValue(clickable) != null;
+		}
+
+		// Fires a Button's native `clicked` delegate directly - SendEvent(ClickEvent) never reaches it,
+		// since Clickable reacts to pointer-down/up events, not ClickEvent. Safe to call unconditionally
+		// alongside a ClickEvent dispatch: a button with no `clicked` subscriber (Timberborn's own,
+		// RegisterCallback<ClickEvent>-based) just has a null delegate here and nothing happens.
+		public static void InvokeClickedDelegate(VisualElement element)
+		{
+			var clickable = GetClickable(element);
+			if (clickable == null || ClickableClickedField == null)
+			{
+				return;
+			}
+
+			(ClickableClickedField.GetValue(clickable) as Action)?.Invoke();
 		}
 
 		// The sound handler is a private instance method on UISoundInitializer, so the delegate it was

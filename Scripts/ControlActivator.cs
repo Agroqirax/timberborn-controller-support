@@ -279,6 +279,13 @@ namespace ControllerSupport
 			using var clickEvent = ClickEvent.GetPooled();
 			clickEvent.target = element;
 			element.SendEvent(clickEvent);
+
+			// A Button wired through its native `clicked` event (Clickable's own pointer-down/up
+			// handling, not ClickEvent) never sees the dispatch above - see
+			// VisualElementProbe.InvokeClickedDelegate. Safe to call unconditionally: a Timberborn button
+			// that only ever used RegisterCallback<ClickEvent> has no `clicked` subscriber, so this is a
+			// no-op for it.
+			VisualElementProbe.InvokeClickedDelegate(element);
 		}
 	}
 }

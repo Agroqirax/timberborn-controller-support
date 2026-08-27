@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Timberborn.BlockObjectTools;
 using Timberborn.CameraSystem;
 using Timberborn.InputSystem;
@@ -104,7 +105,7 @@ namespace ControllerSupport
 		private void Update()
 		{
 			var gamepad = Gamepad.current;
-			if (gamepad == null || !(_toolService.ActiveTool is BlockObjectTool))
+			if (gamepad == null || !IsBuildingPlacementTool(_toolService.ActiveTool))
 			{
 				Deactivate();
 				return;
@@ -191,6 +192,32 @@ namespace ControllerSupport
 			{
 				_cursor = mousePicked.Value.Coordinates;
 			}
+		}
+
+		// BuildingBlueprints.Tools.BuildBuildingBlueprintTool (optional BuildingBlueprints workshop mod,
+		// 3667559269) stamps a saved multi-building group back into the world: its own
+		// BlueprintPlacementService.ProcessCursorLocation reads CameraService.ScreenPointToRayInGridSpace
+		// and ProcessPlacement reads InputService.MainMouseButtonDown - the exact same primitives
+		// BlockObjectTool itself uses for a single-click, then-await-the-next-one placement loop - so it
+		// belongs with this controller, not GamepadAreaSelectionController, even though it isn't literally
+		// a BlockObjectTool. Rotate/flip already read the mod's own RotateClockwise/RotateCounterclockwise/
+		// Flip keybindings (already gamepad-bound); its "Nudge" mode is an alternate WASD-driven movement
+		// scheme the tool offers as an option, unrelated to and not replaced by this controller's own
+		// stick-driven cursor.
+		private static readonly HashSet<string> InternalBuildingPlacementToolTypeNames = new HashSet<string>
+		{
+			"BuildingBlueprints.Tools.BuildBuildingBlueprintTool",
+		};
+
+		private static bool IsBuildingPlacementTool(ITool tool)
+		{
+			if (tool is BlockObjectTool)
+			{
+				return true;
+			}
+
+			var type = tool?.GetType();
+			return type != null && InternalBuildingPlacementToolTypeNames.Contains(type.FullName);
 		}
 
 		private void Activate()

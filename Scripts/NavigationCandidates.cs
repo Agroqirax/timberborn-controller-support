@@ -105,9 +105,15 @@ namespace ControllerSupport
 		// A Button with no click handler of its own - see the comment above IsControl's use in
 		// CollectFrom. Reusing VisualElementProbe here (rather than trusting IsControl alone) is what
 		// tells a real interactive Button apart from one that only exists for its 9-slice background.
+		// HasClickableDelegate covers the other real wiring a Button can have - stock UI Toolkit's own
+		// `clicked` event, which several UI-framework mods use instead of Timberborn's ClickEvent
+		// convention (see VisualElementProbe.ClickableClickedField) - so a mod's own dialog close button
+		// isn't mistaken for the same kind of inert background shell.
 		private static bool IsInertButton(VisualElement element)
 		{
-			return element is Button && !VisualElementProbe.HasClickHandler(element);
+			return element is Button
+				&& !VisualElementProbe.HasClickHandler(element)
+				&& !VisualElementProbe.HasClickableDelegate(element);
 		}
 
 		// Only the rows the ListView has actually realised come back non-null - virtualisation keeps

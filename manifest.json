@@ -19,6 +19,9 @@
     },
     {
       "Id": "SourcePulp.GridCutting"
+    },
+    {
+      "Id": "BuildingBlueprints"
     }
   ]
 }

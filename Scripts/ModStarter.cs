@@ -20,6 +20,8 @@ namespace ControllerSupport
 			{
 				Debug.LogError($"[ControllerSupport] FPPCamera integration failed to start: {e}");
 			}
+
+			BuildingBlueprintsIntegration.TryApply(harmony);
 		}
 	}
 }

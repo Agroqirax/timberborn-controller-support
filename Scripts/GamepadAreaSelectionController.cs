@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using Timberborn.AreaSelectionSystem;
 using Timberborn.BlockObjectTools;
 using Timberborn.BlueprintSystem;
 using Timberborn.CameraSystem;
@@ -23,12 +24,14 @@ namespace ControllerSupport
 	// Drives every non-building area-selection tool with the gamepad - planting and un-planting
 	// (CancelPlantingTool is the eraser shared by the Fields and Forestry/natural-resource planting
 	// groups - two bottom-bar entry points for the one tool), tree-cutting-area marking/unmarking
-	// (base game, plus the optional Cordial.Mods.CutterTool and SourcePulp.GridCutting workshop mods -
-	// see the InternalAreaSelectionToolTypeNames comment below), builder priority, marking/unmarking
-	// buildings for demolition, deleting buildings/objects/recovered-good stacks, and - MapEditor only -
-	// the absolute/relative terrain height brushes and the natural-resource spawn/removal brushes - the
-	// same way GamepadBuildingPlacementController drives BlockObjectTool: the left stick/d-pad nudges a
-	// grid cursor one voxel at a time, A presses/holds/releases exactly like a mouse click-drag-release.
+	// (base game, plus the optional Cordial.Mods.CutterTool and SourcePulp.GridCutting workshop mods),
+	// creating/demolishing a saved building-group blueprint (optional BuildingBlueprints workshop mod -
+	// see the InternalAreaSelectionToolTypeNames comment below for all of these), builder priority,
+	// marking/unmarking buildings for demolition, deleting buildings/objects/recovered-good stacks, and -
+	// MapEditor only - the absolute/relative terrain height brushes and the natural-resource spawn/removal
+	// brushes - the same way GamepadBuildingPlacementController drives BlockObjectTool: the left stick/
+	// d-pad nudges a grid cursor one voxel at a time, A presses/holds/releases exactly like a mouse
+	// click-drag-release.
 	//
 	// SculptingTerrainBrushTool is deliberately not in this list: it sculpts in 3D rather than
 	// snapping to a single terrain height per cell, which this grid-cursor bridge cannot express, and
@@ -95,6 +98,7 @@ namespace ControllerSupport
 		private readonly TerrainPicker _terrainPicker;
 		private readonly PanelTracker _panelTracker;
 		private readonly MarkerDrawerFactory _markerDrawerFactory;
+		private readonly RectangleBoundsDrawerFactory _rectangleBoundsDrawerFactory;
 		private readonly ISpecService _specService;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 
@@ -108,7 +112,8 @@ namespace ControllerSupport
 
 		public GamepadAreaSelectionController(InputService inputService, CameraService cameraService,
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker,
-			MarkerDrawerFactory markerDrawerFactory, ISpecService specService, KeyBindingRegistry keyBindingRegistry)
+			MarkerDrawerFactory markerDrawerFactory, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
+			ISpecService specService, KeyBindingRegistry keyBindingRegistry)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -116,6 +121,7 @@ namespace ControllerSupport
 			_terrainPicker = terrainPicker;
 			_panelTracker = panelTracker;
 			_markerDrawerFactory = markerDrawerFactory;
+			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
@@ -127,6 +133,15 @@ namespace ControllerSupport
 			_inputService.AddInputProcessor(this);
 			GamepadPlacementState.InvalidTileDrawer = _markerDrawerFactory.CreateTileDrawer();
 			GamepadPlacementState.InvalidColor = GetTreeCuttingNoActionColor();
+
+			// Published for optional-mod Harmony patches with no constructor DI of their own (see
+			// GamepadPlacementState.BoundsDrawerFactory/SpecService/TerrainPicker) - e.g.
+			// BuildingBlueprintsIntegration.DemolishToolPostfix, which needs its own correctly-coloured
+			// RectangleBoundsDrawer and the real terrain height under the cursor, neither of which
+			// InvalidTileDrawer/InvalidColor above are the right fit for.
+			GamepadPlacementState.BoundsDrawerFactory = _rectangleBoundsDrawerFactory;
+			GamepadPlacementState.SpecService = _specService;
+			GamepadPlacementState.TerrainPicker = _terrainPicker;
 		}
 
 		// TreeCuttingColorsSpec is internal to Timberborn.ForestryUI, so it can't be named as a generic
@@ -294,6 +309,20 @@ namespace ControllerSupport
 		// GamepadPlacementState.ToolEngaged), so its toggles are reachable by mouse only for now. No base
 		// game tool pairs an always-visible side panel with area-selection cursor driving, so there's no
 		// existing pattern here to extend; leaving it mouse-only rather than inventing one.
+		//
+		// BuildingBlueprints.Tools.CreateBuildingBlueprintTool and BuildingBlueprints.Tools.
+		// DemolishBlueprintTool (optional BuildingBlueprints workshop mod, 3667559269) are the other two
+		// of that mod's three bottom-bar tools - the third, BuildBuildingBlueprintTool, stamps the saved
+		// group back into the world with a BlockObjectTool-shaped placement loop and belongs in
+		// GamepadBuildingPlacementController instead (see its own InternalBuildingPlacementToolTypeNames).
+		// CreateBuildingBlueprintTool drags a rectangle over existing buildings to save as a blueprint via
+		// AreaBlockObjectPickerFactory.CreatePickingUpwards() - the exact same AreaBlockObjectPicker family
+		// the base game's deletion tools use, just built directly instead of through
+		// SelectionToolProcessor. DemolishBlueprintTool is the FPPCameraActivationTool case again: it
+		// reads SelectableObjectRaycaster.TryHitSelectableObject, which itself reads
+		// CameraService.ScreenPointToRayInWorldSpace(InputService.MousePosition) - already redirected to
+		// the gamepad-tracked cell by CameraServicePlacementPatch.WorldSpacePrefix - plus a plain
+		// InputService.MainMouseButtonDown click to confirm, so it needs nothing beyond this line either.
 		private static readonly HashSet<string> InternalAreaSelectionToolTypeNames = new HashSet<string>
 		{
 			"Timberborn.ForestryUI.TreeCuttingAreaUnselectionTool",
@@ -301,6 +330,8 @@ namespace ControllerSupport
 			"FPPCamera.FPPCameraActivationTool",
 			"Cordial.Mods.CutterTool.Scripts.CutterToolService",
 			"SourcePulp.GridCutting.PatternCuttingTool",
+			"BuildingBlueprints.Tools.CreateBuildingBlueprintTool",
+			"BuildingBlueprints.Tools.DemolishBlueprintTool",
 		};
 
 		// PlantingTool, TreeCuttingAreaSelectionTool and the two Demolishable selection tools are

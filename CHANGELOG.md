@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Optional support for the Cutter Tool and Grid Cutting workshop mods' tree-cutting tools
+- Optional support for the Building Blueprints workshop mod's create/build/demolish tools
+
+### Fixed
+
+- Buttons that only wire up Unity's native `clicked` event instead of Timberborn's own click convention (used by timber-ui) are now selectable and clickable with the gamepad
 
 ## [1.1.2.0.4] - 2026-08-27
 
