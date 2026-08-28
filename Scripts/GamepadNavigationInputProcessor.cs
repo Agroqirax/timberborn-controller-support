@@ -171,6 +171,11 @@ namespace ControllerSupport
 
 		private bool ProcessInputCore()
 		{
+			// Flushes whatever MouseEnterEvent dispatch last frame's Apply() queued, before anything
+			// below can queue a new one this frame - see SelectionHighlighter.Tick for why the gap
+			// matters (letting Tooltip's own show/hide bookkeeping see a real frame in between).
+			_highlighter.Tick();
+
 			var gamepad = Gamepad.current;
 			if (gamepad == null)
 			{

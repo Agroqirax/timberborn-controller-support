@@ -28,6 +28,7 @@ namespace ControllerSupport
 		private readonly List<VisualElement> _highlighted = new List<VisualElement>();
 		private readonly List<VisualElement> _pending = new List<VisualElement>();
 		private readonly List<VisualElement> _targets = new List<VisualElement>();
+		private readonly List<VisualElement> _pendingEnter = new List<VisualElement>();
 
 		private VisualElement _ring;
 		private VisualElement _ringHost;
@@ -36,6 +37,7 @@ namespace ControllerSupport
 		public void Apply(VisualElement element)
 		{
 			ClearHover();
+			_pendingEnter.Clear();
 			if (element == null)
 			{
 				DetachRing();
@@ -62,10 +64,51 @@ namespace ControllerSupport
 
 			foreach (var highlighted in _highlighted)
 			{
-				SetHighlighted(highlighted, true);
+				ApplyVisualState(highlighted, true);
 			}
 
+			// The MouseEnterEvent dispatch is deferred to next frame's Tick(), not fired here - see Tick
+			// for why: Tooltip.Enable's own "was already visible" bookkeeping needs a real intervening
+			// UpdateSingleton tick with nothing enabled to correctly hide the previous tooltip before
+			// this one can start its own fresh delay, exactly like a real mouse gets a frame over nothing
+			// whenever it crosses from one hover target directly to another.
+			_pendingEnter.AddRange(_highlighted);
+
 			UpdateRing(element);
+		}
+
+		// Flushes the MouseEnterEvent dispatch queued by the Apply() call from the *previous* frame -
+		// called once at the top of every ProcessInput, before this frame's own Apply() can queue
+		// anything new, so the two calls always land at least one frame apart.
+		//
+		// Tooltip.Enable only restarts its show-delay timer when Tooltip.UpdateSingleton last recorded
+		// "was not visible" (_wasVisibleLastUpdate). A real mouse crossing from one tooltip-bearing
+		// element straight to another still spends that one frame over nothing in between, which is what
+		// lets UpdateSingleton observe the true-to-false transition, Clear() the old tooltip, and flip
+		// that flag before Enable() runs again for the new element. The gamepad cursor has no such gap on
+		// its own - Leave and Enter used to fire back-to-back in the same Apply() call - so
+		// UpdateSingleton never got to see the transition, the old tooltip's Clear() never ran, and the
+		// new content just overwrote the still-visible old one instantly (Enable() unconditionally
+		// updates the label text regardless of the delay gate). An earlier version of this tried forcing
+		// _wasVisibleLastUpdate false by hand from a Harmony patch instead of waiting a frame - that
+		// skips the same true-to-false transition UpdateSingleton needs to see just as badly, since
+		// forcing it false *before* UpdateSingleton ever observed it true means the edge is never
+		// detected and Clear() still never runs. Spending one real frame with the old element already
+		// disabled and nothing new enabled is what lets the game's own logic do this correctly instead of
+		// needing to be told the internal state directly.
+		public void Tick()
+		{
+			if (_pendingEnter.Count == 0)
+			{
+				return;
+			}
+
+			foreach (var element in _pendingEnter)
+			{
+				VisualElementProbe.DispatchHover(element, true);
+			}
+
+			_pendingEnter.Clear();
 		}
 
 		// Safe to call when the elements have already been detached from the panel, which is the
@@ -74,14 +117,15 @@ namespace ControllerSupport
 		{
 			DetachRing();
 			ClearHover();
+			_pendingEnter.Clear();
 		}
 
 		private void ClearHover()
 		{
-
 			foreach (var highlighted in _highlighted)
 			{
-				SetHighlighted(highlighted, false);
+				ApplyVisualState(highlighted, false);
+				VisualElementProbe.DispatchHover(highlighted, false);
 			}
 
 			_highlighted.Clear();
@@ -252,7 +296,9 @@ namespace ControllerSupport
 			return ring;
 		}
 
-		private static void SetHighlighted(VisualElement element, bool highlighted)
+		// Pure visual state (the :hover pseudo-state, or the fallback border) - event dispatch is handled
+		// separately by the caller, since Enter needs to be deferred a frame while Leave and this don't.
+		private static void ApplyVisualState(VisualElement element, bool highlighted)
 		{
 			if (VisualElementProbe.SupportsHoverState)
 			{

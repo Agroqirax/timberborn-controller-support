@@ -71,6 +71,92 @@ namespace ControllerSupport
 			}
 		}
 
+		// True only for the duration of a call this class made itself into SendEvent, never for a real
+		// mouse event - GamepadTooltipDelayPatch reads this from inside Tooltip.Enable (invoked
+		// synchronously off MouseEnterEvent, so it is still true at that point) to tell a gamepad-driven
+		// hover apart from a real one, since both funnel through the exact same handler.
+		internal static bool IsSyntheticDispatch { get; private set; }
+
+		// The element the in-flight SendEvent call was targeted at. Read by GamepadTooltipDelayPatch
+		// only while IsSyntheticDispatch is true, so it always reflects the element whose hover just
+		// caused whatever handler is currently running - not any wider "current selection" state, which
+		// would be wrong the moment a real mouse tooltip is what's actually on screen (this mod supports
+		// mixing mouse/keyboard and gamepad at once, e.g. a Steam Deck trackpad mapped to mouse).
+		internal static VisualElement DispatchTarget { get; private set; }
+
+		// The pseudo-state above only makes :hover USS rules match - it never touches UI Toolkit's
+		// event dispatcher. Real hover-triggered behaviour (Tooltip's show-delay timer, ToolButton's
+		// bottom-bar description card via ToolService.SetTemporaryTool) is wired entirely off genuine
+		// MouseEnterEvent/MouseLeaveEvent/MouseOverEvent/MouseOutEvent callbacks, so without this a
+		// gamepad selection can rest on an element forever and neither will ever appear. Sending all
+		// four - Enter/Leave are targeted, non-bubbling events (Tooltip.RegisterTooltip and
+		// ToolButton.PostLoad both listen for those directly on their own root), Over/Out bubble (used
+		// by ToolButton's own small tooltip init) - covers both patterns without needing to know which
+		// one a given element actually uses.
+		public static void DispatchHover(VisualElement element, bool entering)
+		{
+			IsSyntheticDispatch = true;
+			DispatchTarget = element;
+			try
+			{
+				if (entering)
+				{
+					SendMouseEnter(element);
+					SendMouseOver(element);
+				}
+				else
+				{
+					SendMouseOut(element);
+					SendMouseLeave(element);
+				}
+			}
+			catch (Exception e)
+			{
+				Debug.LogWarning($"[ControllerSupport] Could not dispatch hover event: {e.Message}");
+			}
+			finally
+			{
+				IsSyntheticDispatch = false;
+				DispatchTarget = null;
+			}
+		}
+
+		private static void SendMouseEnter(VisualElement element)
+		{
+			using (var evt = MouseEnterEvent.GetPooled())
+			{
+				evt.target = element;
+				element.SendEvent(evt);
+			}
+		}
+
+		private static void SendMouseLeave(VisualElement element)
+		{
+			using (var evt = MouseLeaveEvent.GetPooled())
+			{
+				evt.target = element;
+				element.SendEvent(evt);
+			}
+		}
+
+		private static void SendMouseOver(VisualElement element)
+		{
+			using (var evt = MouseOverEvent.GetPooled())
+			{
+				evt.target = element;
+				element.SendEvent(evt);
+			}
+		}
+
+		private static void SendMouseOut(VisualElement element)
+		{
+			using (var evt = MouseOutEvent.GetPooled())
+			{
+				evt.target = element;
+				element.SendEvent(evt);
+			}
+		}
+
 		// True when the element has a ClickEvent callback that actually does something.
 		//
 		// This is what makes non-Button controls reachable - list rows, for example, are plain
