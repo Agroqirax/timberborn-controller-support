@@ -9,17 +9,24 @@ namespace ControllerSupport
 	// game's UI. The one consistent signal is that DialogBoxShower's own dialogs always name their
 	// confirm button "ConfirmButton", which covers exactly the confirmation and warning dialogs this
 	// matters most for (not enough science points, unlock this building for N points, and the like).
-	// Falls through to nothing for panels that don't follow that convention, the same way
+	// GoodbyeBox (Timberborn.GameExitSystem) is the other dialog this matters for - both exit-to-
+	// desktop and exit-to-main-menu confirmations reuse it - and it doesn't follow that naming: its
+	// two buttons are "Feedback" (opens the upvote site) and "Exit", built left-to-right in that
+	// order, so SpatialNavigator.First's top-left tiebreak would otherwise land on Feedback. "Exit"
+	// is unique to GoodbyeBox.uxml, so matching it by name carries no risk of hijacking an unrelated
+	// panel's button of the same name.
+	// Falls through to nothing for panels that don't follow either convention, the same way
 	// BottomBarNavigation.DefaultTool falls through for anything that isn't the bare HUD.
 	internal static class DialogDefaultAction
 	{
 		private const string ConfirmButtonName = "ConfirmButton";
+		private const string GoodbyeBoxExitButtonName = "Exit";
 
 		public static VisualElement Find(List<VisualElement> candidates)
 		{
 			foreach (var candidate in candidates)
 			{
-				if (candidate.name == ConfirmButtonName)
+				if (candidate.name == ConfirmButtonName || candidate.name == GoodbyeBoxExitButtonName)
 				{
 					return candidate;
 				}
