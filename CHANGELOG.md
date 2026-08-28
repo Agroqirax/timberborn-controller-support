@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Exit is now the default button on the confirm quit prompt
 - Tooltips and info cards on the bottombar now appear when using a controller
 - Placement/selection/zipline tools no longer briefly show gamepad-controlled mode (cursor hidden) when activated with the mouse instead of the gamepad's Confirm button
+- The no-gamepad-detected startup popup (and its Steam Input layout-picker link) no longer shows on GOG/Epic builds, since Steam Input and the `steam://` link are Steam-only
 
 ## [1.1.2.0.4] - 2026-08-27
 
