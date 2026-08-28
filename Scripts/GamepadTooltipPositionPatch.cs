@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
+using Timberborn.CameraSystem;
 using Timberborn.TooltipSystem;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -49,23 +50,41 @@ namespace ControllerSupport
 		[HarmonyPrefix]
 		private static bool Prefix(object __instance, VisualElement visualElement)
 		{
-			var target = GamepadTooltipAnchor.Current;
-			if (target == null || target.panel == null)
+			if (CalculateCursorOffsetMethod == null || CalculateHorizontalPositionMethod == null || CalculateVerticalPositionMethod == null)
 			{
 				return true;
 			}
 
-			if (CalculateCursorOffsetMethod == null || CalculateHorizontalPositionMethod == null || CalculateVerticalPositionMethod == null)
+			// WorldPosition is checked first: it's only ever non-null while a controller like
+			// GamepadZiplineConnectionController is actively driving this exact frame, and gets cleared
+			// promptly once it isn't. Current has no such lifecycle - it's only ever overwritten by the
+			// next Tooltip.Enable() call, so it goes stale and keeps pointing at whatever UI element was
+			// last hovered (e.g. the "Add connection" button) for as long as a priority tooltip like
+			// ZiplinePreviewTooltip is showing, since that path never calls Tooltip.Enable at all.
+			Vector2? fraction = null;
+			if (GamepadTooltipAnchor.WorldPosition.HasValue && GamepadTooltipAnchor.CameraService != null)
+			{
+				fraction = WorldFraction(GamepadTooltipAnchor.WorldPosition.Value, visualElement.parent, GamepadTooltipAnchor.CameraService);
+			}
+			else
+			{
+				var target = GamepadTooltipAnchor.Current;
+				if (target != null && target.panel != null)
+				{
+					fraction = TargetFraction(target, visualElement.parent);
+				}
+			}
+
+			if (fraction == null)
 			{
 				return true;
 			}
 
 			try
 			{
-				var fraction = TargetFraction(target, visualElement.parent);
 				var offset = (Vector2)CalculateCursorOffsetMethod.Invoke(__instance, null);
-				var left = (float)CalculateHorizontalPositionMethod.Invoke(null, new object[] { visualElement, fraction.x, offset.x });
-				var top = (float)CalculateVerticalPositionMethod.Invoke(null, new object[] { visualElement, fraction.y, offset.y });
+				var left = (float)CalculateHorizontalPositionMethod.Invoke(null, new object[] { visualElement, fraction.Value.x, offset.x });
+				var top = (float)CalculateVerticalPositionMethod.Invoke(null, new object[] { visualElement, fraction.Value.y, offset.y });
 				visualElement.style.left = left;
 				visualElement.style.top = top;
 			}
@@ -101,6 +120,22 @@ namespace ControllerSupport
 			var height = tooltipParent.resolvedStyle.height;
 			var fractionX = width > 0f ? local.x / width : 0f;
 			var fractionYTopDown = height > 0f ? local.y / height : 0f;
+
+			return new Vector2(fractionX, 1f - fractionYTopDown);
+		}
+
+		// Same fraction convention as TargetFraction above, but for a world-space point instead of a UI
+		// element - CameraService.WorldSpaceToPanelSpace is the base game's own world-to-panel-pixel
+		// conversion (StockpileOverlay/WaterPoweredGeneratorPreviewPanel both already use it the same
+		// way), and it returns panel space top-down like WorldToLocal does, so the same Y-flip applies.
+		private static Vector2 WorldFraction(Vector3 worldPosition, VisualElement tooltipParent, CameraService cameraService)
+		{
+			var panelPosition = cameraService.WorldSpaceToPanelSpace(tooltipParent, worldPosition);
+
+			var width = tooltipParent.resolvedStyle.width;
+			var height = tooltipParent.resolvedStyle.height;
+			var fractionX = width > 0f ? panelPosition.x / width : 0f;
+			var fractionYTopDown = height > 0f ? panelPosition.y / height : 0f;
 
 			return new Vector2(fractionX, 1f - fractionYTopDown);
 		}

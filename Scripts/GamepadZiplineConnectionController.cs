@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using HarmonyLib;
 using Timberborn.CameraSystem;
+using Timberborn.Coordinates;
 using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
 using Timberborn.SingletonSystem;
@@ -150,6 +151,7 @@ namespace ControllerSupport
 		public void Load()
 		{
 			_inputService.AddInputProcessor(this);
+			GamepadTooltipAnchor.CameraService = _cameraService;
 		}
 
 		// See GamepadBuildingPlacementController.Unload for why an IPriorityInputProcessor can never be
@@ -158,6 +160,7 @@ namespace ControllerSupport
 		public void Unload()
 		{
 			GamepadPlacementState.Clear();
+			ClearTooltipAnchor();
 			_inputService.ShowCursor();
 		}
 
@@ -191,6 +194,7 @@ namespace ControllerSupport
 			if (_panelTracker.HasStackedPanel)
 			{
 				GamepadPlacementState.Clear();
+				ClearTooltipAnchor();
 				_inputService.ShowCursor();
 				return;
 			}
@@ -214,6 +218,7 @@ namespace ControllerSupport
 				// Nothing else on the map to connect to - nothing for the stick to jump between, but a
 				// real mouse click still works untouched below since Active stays false.
 				GamepadPlacementState.Active = false;
+				ClearTooltipAnchor();
 				_inputService.ShowCursor();
 				return;
 			}
@@ -225,11 +230,14 @@ namespace ControllerSupport
 			{
 				// The real mouse is driving this frame - stand fully down, same as
 				// GamepadAreaSelectionController does, and leave _selected exactly where the stick last
-				// left it for whenever the gamepad resumes.
+				// left it for whenever the gamepad resumes. Clearing the world anchor here is what lets
+				// ZiplinePreviewTooltip go back to following the real cursor while the mouse is in
+				// control, rather than staying pinned to wherever the stick last left it.
 				GamepadPlacementState.Active = false;
 				GamepadPlacementState.MainMouseButtonDown = false;
 				GamepadPlacementState.MainMouseButtonHeld = false;
 				GamepadPlacementState.MainMouseButtonUp = false;
+				ClearTooltipAnchor();
 				return;
 			}
 
@@ -244,6 +252,16 @@ namespace ControllerSupport
 
 			GamepadPlacementState.Active = true;
 			GamepadPlacementState.GridCursor = _selected.CableAnchorPointInt;
+
+			// Midpoint of the two towers being connected - the same "here's what you're looking at"
+			// spot the preview cable itself spans, so the tooltip sits between them rather than at
+			// wherever the real mouse happens to be resting while the stick drives the tool.
+			// CableAnchorPoint is grid space (x, y=north/south, z=height, see ZiplineTower.CableAnchorPoint
+			// and CoordinateSystem.WorldToGrid/GridToWorld) - GamepadTooltipAnchor.WorldPosition and
+			// CameraService.WorldSpaceToPanelSpace both expect real Unity world space (y=up), the same
+			// conversion ZiplineCableModel does before rendering the actual cable mesh.
+			var midpointGrid = (_origin.CableAnchorPoint + _selected.CableAnchorPoint) / 2f;
+			GamepadTooltipAnchor.WorldPosition = CoordinateSystem.GridToWorld(midpointGrid);
 
 			// See ConfirmReleaseGate - suppresses the same physical Confirm press that just clicked the
 			// entity panel's "Add connection" button (or the previous tower this chained from) from
@@ -331,6 +349,19 @@ namespace ControllerSupport
 			return new Vector2(gridPosition.x, gridPosition.y);
 		}
 
+		// ZiplinePreviewTooltip never calls Tooltip.Enable (see GamepadTooltipAnchor.WorldPosition's own
+		// comment), so GamepadTooltipAnchor.Current is never touched by this tool at all and can be left
+		// holding a stale VisualElement from an unrelated gamepad UI hover earlier in the session -
+		// nothing hovering the HUD while the mouse is over the game world ever overwrites it back to
+		// null. Left alone, GamepadTooltipPositionPatch would fall through to that stale element the
+		// instant WorldPosition itself clears, instead of all the way through to the real mouse-cursor
+		// positioning - so both anchors have to clear together, not just this controller's own.
+		private static void ClearTooltipAnchor()
+		{
+			GamepadTooltipAnchor.WorldPosition = null;
+			GamepadTooltipAnchor.Current = null;
+		}
+
 		// See the class comment above - clears whatever the tool's own ZiplinePreviewCableRenderer last
 		// highlighted red for the tower being left, through its own Highlighter instance, so it does
 		// not linger once GridCursor moves on to a different one this same frame.
@@ -361,12 +392,14 @@ namespace ControllerSupport
 			_origin = null;
 			_selected = null;
 			GamepadPlacementState.Clear();
+			ClearTooltipAnchor();
 			_inputService.ShowCursor();
 		}
 
 		private void ReportFailure(Exception e)
 		{
 			GamepadPlacementState.Clear();
+			ClearTooltipAnchor();
 			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;

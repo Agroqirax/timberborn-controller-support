@@ -1,3 +1,5 @@
+using Timberborn.CameraSystem;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace ControllerSupport
@@ -15,5 +17,19 @@ namespace ControllerSupport
 	internal static class GamepadTooltipAnchor
 	{
 		public static VisualElement Current { get; set; }
+
+		// Same idea as Current, but for a tooltip that isn't hovering a UI element at all -
+		// ZiplinePreviewTooltip.ShowTooltip goes straight through TooltipContainer.ShowPriority, never
+		// touching Tooltip.Enable, so Current is never set for it and the tooltip would otherwise keep
+		// following the real mouse cursor no matter how far that is from the towers actually being
+		// connected. Set to a world-space point (e.g. the midpoint between the two zipline towers) while
+		// the gamepad is actively driving the connection tool, and cleared whenever the mouse takes over
+		// or the tool exits, so a real mouse click still gets the ordinary cursor-following tooltip.
+		public static Vector3? WorldPosition { get; set; }
+
+		// Set once (constructor injection reaches every Harmony patch's static context otherwise), by
+		// whichever gamepad controller needs world-space tooltip anchoring - currently only
+		// GamepadZiplineConnectionController.
+		public static CameraService CameraService { get; set; }
 	}
 }

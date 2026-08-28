@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Tooltips and info cards on the bottombar now appear when using a controller
 - Placement/selection/zipline tools no longer briefly show gamepad-controlled mode (cursor hidden) when activated with the mouse instead of the gamepad's Confirm button
 - The no-gamepad-detected startup popup (and its Steam Input layout-picker link) no longer shows on GOG/Epic builds, since Steam Input and the `steam://` link are Steam-only
+- The zipline connection tooltip now anchors between the two towers being connected when the gamepad drives the tool, instead of following the real mouse cursor which may not be anywhere near them; still follows the cursor as normal when the mouse is in control
 
 ## [1.1.2.0.4] - 2026-08-27
 
