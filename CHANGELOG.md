@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.2.0.5] - 2026-08-28
+
 ### Added
 
 - Gamepad support for the zipline connection tool: the stick jumps directly between candidate towers/poles in the pushed direction instead of moving a cursor.
@@ -78,6 +80,7 @@ All notable changes to this project will be documented in this file.
 - Initial release
 
 [unreleased]: https://github.com/agroqirax/timberborn-controller-support/compare/v1.1.2.0.3...HEAD
+[1.1.2.0.5]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.5
 [1.1.2.0.4]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.4
 [1.1.2.0.3]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.3
 [1.1.2.0.2]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.2
