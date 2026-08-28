@@ -37,19 +37,28 @@ namespace ControllerSupport
 
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 		private readonly InputService _inputService;
+		private readonly RecentInputDeviceTracker _recentInputDeviceTracker;
 		private bool _gamepadControlled = true;
 
-		public GamepadMouseHandoff(KeyBindingRegistry keyBindingRegistry, InputService inputService)
+		public GamepadMouseHandoff(KeyBindingRegistry keyBindingRegistry, InputService inputService,
+			RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_keyBindingRegistry = keyBindingRegistry;
 			_inputService = inputService;
+			_recentInputDeviceTracker = recentInputDeviceTracker;
 		}
 
-		// Call once, from the owning controller's Activate()/Engage() - restarts gamepad-controlled,
-		// matching the existing screen-centre seed, which was always gamepad-only.
+		// Call once, from the owning controller's Activate()/Engage(). Picks the starting device from
+		// RecentInputDeviceTracker's own running latch rather than sampling KeyBindingRegistry directly
+		// here - by the time a controller's own Activate() runs, a mouse click that triggered it (e.g.
+		// a bottom-bar or entity-panel button) is often a frame or more in the past, since the tool only
+		// becomes ActiveTool, and the controller only starts reading input, after that click's own
+		// ClickEvent handling finishes. Sampling KeyBindingRegistry's edges directly at this point missed
+		// exactly that case and always fell back to gamepad-controlled - see RecentInputDeviceTracker's
+		// own comment for why a continuously-running latch is what actually catches it.
 		public void Reset()
 		{
-			_gamepadControlled = true;
+			_gamepadControlled = _recentInputDeviceTracker.GamepadControlled;
 		}
 
 		// Call once per frame, after this frame's stick step has been read. gamepadActionDown must

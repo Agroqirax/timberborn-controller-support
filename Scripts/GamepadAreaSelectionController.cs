@@ -113,7 +113,8 @@ namespace ControllerSupport
 		public GamepadAreaSelectionController(InputService inputService, CameraService cameraService,
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker,
 			MarkerDrawerFactory markerDrawerFactory, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
-			ISpecService specService, KeyBindingRegistry keyBindingRegistry)
+			ISpecService specService, KeyBindingRegistry keyBindingRegistry,
+			RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -125,7 +126,7 @@ namespace ControllerSupport
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
 
 		public void Load()

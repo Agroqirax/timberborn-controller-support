@@ -132,7 +132,8 @@ namespace ControllerSupport
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker, EventBus eventBus,
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
 			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
-			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry)
+			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry,
+			RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -146,7 +147,7 @@ namespace ControllerSupport
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
 
 		public void Load()

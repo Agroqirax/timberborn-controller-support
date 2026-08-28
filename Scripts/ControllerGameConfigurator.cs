@@ -11,6 +11,7 @@ namespace ControllerSupport
 	{
 		protected override void Configure()
 		{
+			Bind<RecentInputDeviceTracker>().AsSingleton();
 			Bind<GamepadBuildingPlacementController>().AsSingleton();
 			Bind<GamepadAreaSelectionController>().AsSingleton();
 			Bind<GamepadSelectionController>().AsSingleton();

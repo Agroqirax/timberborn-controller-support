@@ -61,7 +61,7 @@ namespace ControllerSupport
 
 		public GamepadBuildingPlacementController(InputService inputService, CameraService cameraService,
 			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker,
-			KeyBindingRegistry keyBindingRegistry)
+			KeyBindingRegistry keyBindingRegistry, RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -70,7 +70,7 @@ namespace ControllerSupport
 			_panelTracker = panelTracker;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
 
 		public void Load()

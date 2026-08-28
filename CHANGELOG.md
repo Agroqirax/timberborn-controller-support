@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Buttons that only wire up Unity's native `clicked` event instead of Timberborn's own click convention (used by timber-ui) are now selectable and clickable with the gamepad
 - Exit is now the default button on the confirm quit prompt
 - Tooltips and info cards on the bottombar now appear when using a controller
+- Placement/selection/zipline tools no longer briefly show gamepad-controlled mode (cursor hidden) when activated with the mouse instead of the gamepad's Confirm button
 
 ## [1.1.2.0.4] - 2026-08-27
 
