@@ -9,3 +9,5 @@ KeyBinding.GamepadCameraRotateModifier,กดค้างเพื่อหม�
 ControllerSupport.NoGamepadDialog.Message,"ไม่พบคอนโทรลเลอร์ โดยค่าเริ่มต้น Steam Input จะตั้งค่าคอนโทรลเลอร์เป็นเลย์เอาต์แป้นพิมพ์และเมาส์ ซึ่งม็อดนี้ไม่สามารถใช้งานได้ เปลี่ยนเป็นเลย์เอาต์เกมแพดเพื่อให้การรองรับคอนโทรลเลอร์ทำงาน",
 ControllerSupport.NoGamepadDialog.OpenLayoutButton,เปิดเลย์เอาต์คอนโทรลเลอร์ที่แนะนำ,
 ControllerSupport.NoGamepadDialog.IgnoreButton,ไม่สนใจ,
+KeyBinding.IncreaseFloodgateHeight,เพิ่มแถบเลื่อน,
+KeyBinding.DecreaseFloodgateHeight,ลดแถบเลื่อน,

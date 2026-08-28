@@ -9,3 +9,5 @@ KeyBinding.GamepadCameraRotateModifier,Утримувати для поворо�
 ControllerSupport.NoGamepadDialog.Message,"Контролер не виявлено. За замовчуванням Steam Input налаштовує контролер на розкладку клавіатури та миші, яку цей мод не може використовувати. Перемкніть його на розкладку геймпада, щоб підтримка контролера запрацювала.",
 ControllerSupport.NoGamepadDialog.OpenLayoutButton,Відкрити рекомендовану розкладку контролера,
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ігнорувати,
+KeyBinding.IncreaseFloodgateHeight,Збільшити повзунок,
+KeyBinding.DecreaseFloodgateHeight,Зменшити повзунок,

@@ -107,8 +107,12 @@ namespace ControllerSupport
 
 			// Anything that registered a ClickEvent callback counts too. That is what brings list
 			// rows - saves, maps, mods - into the rotation, since they are plain VisualElements built
-			// by a factory rather than Buttons.
-			if (IsBigEnough(element) && VisualElementProbe.HasClickHandler(element))
+			// by a factory rather than Buttons. HasPointerPressHandler brings in the same
+			// press/release-only pattern as IsInertButton below, for the case where it is not even a
+			// Button - PinnedLeversPanel's pinned-lever row presses/releases the lever from a Label's
+			// PointerDownEvent/PointerUpEvent, with no click of any kind.
+			if (IsBigEnough(element)
+				&& (VisualElementProbe.HasClickHandler(element) || VisualElementProbe.HasPointerPressHandler(element)))
 			{
 				into.Add(element);
 				return true;
@@ -153,12 +157,15 @@ namespace ControllerSupport
 		// HasClickableDelegate covers the other real wiring a Button can have - stock UI Toolkit's own
 		// `clicked` event, which several UI-framework mods use instead of Timberborn's ClickEvent
 		// convention (see VisualElementProbe.ClickableClickedField) - so a mod's own dialog close button
-		// isn't mistaken for the same kind of inert background shell.
+		// isn't mistaken for the same kind of inert background shell. HasPointerPressHandler covers a
+		// third kind: LeverFragment's switch button skips both ClickEvent and `clicked` entirely and
+		// presses/releases the lever straight from PointerDownEvent/PointerUpEvent.
 		private static bool IsInertButton(VisualElement element)
 		{
 			return element is Button
 				&& !VisualElementProbe.HasClickHandler(element)
-				&& !VisualElementProbe.HasClickableDelegate(element);
+				&& !VisualElementProbe.HasClickableDelegate(element)
+				&& !VisualElementProbe.HasPointerPressHandler(element);
 		}
 
 		// Only the rows the ListView has actually realised come back non-null - virtualisation keeps

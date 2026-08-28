@@ -22,6 +22,8 @@ namespace ControllerSupport
 			typeof(VisualElement).GetField("m_CallbackRegistry", BindingFlags.Instance | BindingFlags.NonPublic);
 
 		private static readonly long ClickEventTypeId = EventBase<ClickEvent>.TypeId();
+		private static readonly long PointerDownEventTypeId = EventBase<PointerDownEvent>.TypeId();
+		private static readonly long PointerUpEventTypeId = EventBase<PointerUpEvent>.TypeId();
 
 		// Timberborn's own controls always wire clicks through RegisterCallback<ClickEvent> (see
 		// HasClickHandler above), but a Button is stock UI Toolkit underneath, and plenty of UI-framework
@@ -36,11 +38,13 @@ namespace ControllerSupport
 			typeof(Clickable).GetField("clicked", BindingFlags.Instance | BindingFlags.NonPublic);
 
 		private static FieldInfo _bubbleUpCallbacksField;
+		private static FieldInfo _trickleDownCallbacksField;
 		private static FieldInfo _callbackListField;
 		private static FieldInfo _callbackArrayField;
 		private static FieldInfo _callbackCountField;
 		private static FieldInfo _eventTypeIdField;
 		private static bool _clickProbeUnavailable;
+		private static bool _pointerPressProbeUnavailable;
 
 		// m_Callback is declared on each generic functor instantiation, so its FieldInfo differs per
 		// closed type and cannot be cached in a single field the way the shared base's members can.
@@ -219,6 +223,69 @@ namespace ControllerSupport
 			return false;
 		}
 
+		// True when the element registered a PointerDownEvent or PointerUpEvent callback with
+		// TrickleDown.TrickleDown. Ordinary clickable elements never need this - a Button's own
+		// Clickable manipulator already registers PointerDownEvent/PointerUpEvent, but on the bubble-up
+		// list, so checking bubble-up here would answer "yes" for every Button in the game and be
+		// useless as a signal. Trickle-down registration of these two specifically is a much rarer,
+		// deliberate pattern - LeverFragment's switch button and PinnedLeversPanel's pinned-lever row
+		// both press/release the lever directly from PointerDownEvent/PointerUpEvent instead of going
+		// through ClickEvent or `clicked`, which is exactly why NavigationCandidates.IsInertButton (and
+		// the plain-VisualElement fallback next to it) previously read them as inert - a Button with no
+		// ClickEvent handler and no `clicked` subscriber, and a Label with neither at all.
+		public static bool HasPointerPressHandler(VisualElement element)
+		{
+			if (_pointerPressProbeUnavailable || CallbackRegistryField == null)
+			{
+				return false;
+			}
+
+			try
+			{
+				var registry = CallbackRegistryField.GetValue(element);
+				if (registry == null)
+				{
+					return false;
+				}
+
+				var callbackList = GetTrickleDownCallbackList(registry);
+				if (callbackList == null)
+				{
+					return false;
+				}
+
+				var array = (Array)GetCallbackArrayField(callbackList).GetValue(callbackList);
+				var count = (int)GetCallbackCountField(callbackList).GetValue(callbackList);
+				for (var i = 0; i < count && i < array.Length; i++)
+				{
+					var functor = array.GetValue(i);
+					if (functor == null)
+					{
+						continue;
+					}
+
+					var typeIdField = GetEventTypeIdField(functor);
+					if (typeIdField == null)
+					{
+						continue;
+					}
+
+					var typeId = (long)typeIdField.GetValue(functor);
+					if (typeId == PointerDownEventTypeId || typeId == PointerUpEventTypeId)
+					{
+						return true;
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				_pointerPressProbeUnavailable = true;
+				Debug.LogWarning($"[ControllerSupport] Pointer-press probe unavailable: {e.Message}");
+			}
+
+			return false;
+		}
+
 		// True when a Button has at least one subscriber on its native `clicked` event - the sibling
 		// check to HasClickHandler for buttons that skip ClickEvent entirely (see ClickableClickedField).
 		private static Clickable GetClickable(VisualElement element)
@@ -276,7 +343,19 @@ namespace ControllerSupport
 		{
 			_bubbleUpCallbacksField ??= registry.GetType()
 				.GetField("m_BubbleUpCallbacks", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-			var dynamicList = _bubbleUpCallbacksField?.GetValue(registry);
+			return GetDynamicCallbackList(registry, _bubbleUpCallbacksField);
+		}
+
+		private static object GetTrickleDownCallbackList(object registry)
+		{
+			_trickleDownCallbacksField ??= registry.GetType()
+				.GetField("m_TrickleDownCallbacks", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+			return GetDynamicCallbackList(registry, _trickleDownCallbacksField);
+		}
+
+		private static object GetDynamicCallbackList(object registry, FieldInfo dynamicCallbackListField)
+		{
+			var dynamicList = dynamicCallbackListField?.GetValue(registry);
 			if (dynamicList == null)
 			{
 				return null;

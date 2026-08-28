@@ -29,7 +29,13 @@ namespace ControllerSupport
 				|| element is SliderInt
 				|| element is PreciseSlider
 				|| element is Dropdown
-				|| element is TextField;
+				|| element is TextField
+				// IntegerField/FloatField derive from TextValueField<T>, a sibling of TextField's own
+				// TextInputBaseField<string> - not a subclass of it - so `is TextField` alone misses them.
+				// PowerMeterFragment's IntThreshold and ResourceCounterFragment's Threshold are both
+				// IntegerFields, and neither was reachable before this.
+				|| element is IntegerField
+				|| element is FloatField;
 		}
 
 		public static void Activate(VisualElement element)
@@ -64,12 +70,37 @@ namespace ControllerSupport
 					textField.Focus();
 					return;
 
+				// Same reasoning as TextField above - IntegerField/FloatField aren't one, so they need
+				// their own case (see IsControl).
+				case IntegerField integerField:
+					integerField.Focus();
+					return;
+
+				case FloatField floatField:
+					floatField.Focus();
+					return;
+
 				// A list row that has no click handler of its own - the settlement list's case - never
 				// tells its ListView anything happened, click or not. Confirm is the only signal it gets,
 				// so this is the one place selection has to be driven by hand rather than left to fire as
 				// a side effect of the click below.
 				default:
 					SyncListSelection(element);
+
+					// LeverFragment's switch button (and PinnedLeversPanel's pinned-lever row) skip
+					// ClickEvent and `clicked` entirely and drive the lever straight off
+					// PointerDownEvent/PointerUpEvent - see VisualElementProbe.HasPointerPressHandler.
+					// Checked ahead of Click() specifically because a real ClickEvent handler or
+					// `clicked` subscriber takes priority when both happen to be present, same
+					// precedence NavigationCandidates.IsInertButton already applies.
+					if (!VisualElementProbe.HasClickHandler(element)
+						&& !VisualElementProbe.HasClickableDelegate(element)
+						&& VisualElementProbe.HasPointerPressHandler(element))
+					{
+						PressAndRelease(element);
+						return;
+					}
+
 					Click(element);
 					return;
 			}
@@ -264,6 +295,28 @@ namespace ControllerSupport
 			}
 
 			return dropdown.Q<Button>("ArrowDown") ?? selection;
+		}
+
+		// Sends PointerDownEvent then PointerUpEvent, both targeted at element rather than left to land
+		// on whatever is under the mouse (same reason Click() below sets ClickEvent.target). Confirm
+		// itself is momentary, so pressing and releasing back to back is the right mapping for both of
+		// LeverFragment's cases: SwitchOff/SwitchOn latch levers act on the down, and spring-return
+		// levers - which release on their own the instant the physical press ends - would otherwise be
+		// left stuck "pressed" with no synthesised release ever coming. A held confirm still only
+		// produces a single down/up pair here, unlike the dedicated per-building action keybind
+		// (LeverFragment.ProcessInput's own UniqueBuildingActionKey) which does track hold-to-release -
+		// this is the panel button, not that keybind, and mirrors what a quick mouse click already does.
+		private static void PressAndRelease(VisualElement element)
+		{
+			using (var pointerDownEvent = PointerDownEvent.GetPooled())
+			{
+				pointerDownEvent.target = element;
+				element.SendEvent(pointerDownEvent);
+			}
+
+			using var pointerUpEvent = PointerUpEvent.GetPooled();
+			pointerUpEvent.target = element;
+			element.SendEvent(pointerUpEvent);
 		}
 
 		private static void Click(VisualElement element)

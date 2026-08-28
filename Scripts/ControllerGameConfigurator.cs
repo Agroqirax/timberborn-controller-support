@@ -15,7 +15,7 @@ namespace ControllerSupport
 			Bind<GamepadBuildingPlacementController>().AsSingleton();
 			Bind<GamepadAreaSelectionController>().AsSingleton();
 			Bind<GamepadSelectionController>().AsSingleton();
-			Bind<GamepadValveController>().AsSingleton();
+			Bind<GamepadEntitySliderController>().AsSingleton();
 		}
 	}
 }

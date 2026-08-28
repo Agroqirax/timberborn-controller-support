@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- The Increase/Decrease Floodgate Height shoulders now also drive the mechanical/compact/deep pump's flow rate, water depth/flow/contamination sensor thresholds, the power meter's and resource counter's percent thresholds (when shown as a slider), and the weather station's early activation hours - whichever single slider the selected entity's panel is currently showing
+
+### Fixed
+
+- The automation lever's Switch On/Off button is now selectable and activatable with the gamepad (it drives the lever from raw pointer press/release instead of a click)
+- Numeric text fields (IntegerField/FloatField - the power meter's and resource counter's threshold fields, among others) are now selectable with the gamepad; only string TextFields were reachable before
+- The Increase/Decrease Floodgate Height keybind labels are renamed to Increase/Decrease Entity Slider in the keybind settings menu, since the shoulders now drive far more than floodgates - localized into all 14 shipped languages
+- The flow and contamination sensors' threshold slider handle now updates immediately when its value changes from outside the slider itself (the gamepad shoulders, previously only reflected after closing and reopening the entity panel); the depth sensor's own slider was unaffected, since it already refreshed live
+
 ## [1.1.2.0.5] - 2026-08-28
 
 ### Added
