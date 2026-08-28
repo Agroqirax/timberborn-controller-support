@@ -6,11 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Gamepad support for the zipline connection tool: the stick jumps directly between candidate towers/poles in the pushed direction instead of moving a cursor.
 - Optional support for the Cutter Tool and Grid Cutting workshop mods' tree-cutting tools
 - Optional support for the Building Blueprints workshop mod's create/build/demolish tools
 
 ### Fixed
 
+- Nested buttons are now reachable
 - Buttons that only wire up Unity's native `clicked` event instead of Timberborn's own click convention (used by timber-ui) are now selectable and clickable with the gamepad
 - Exit is now the default button on the confirm quit prompt
 - Tooltips and info cards on the bottombar now appear when using a controller

@@ -38,7 +38,8 @@
         "Timberborn.SelectionSystem.dll",
         "Timberborn.WaterSystemRendering.dll",
         "Timberborn.MapEditorBrushesUI.dll",
-        "Timberborn.MapEditorNaturalResourcesUI.dll"
+        "Timberborn.MapEditorNaturalResourcesUI.dll",
+        "Timberborn.ZiplineSystem.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

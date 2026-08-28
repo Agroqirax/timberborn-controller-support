@@ -55,6 +55,21 @@ namespace ControllerSupport
 				if (IsBigEnough(element))
 				{
 					into.Add(element);
+
+					// The mirror image of IsInertButton above: a real Button can itself wrap another
+					// real, independently-actionable Button rather than a merely decorative one -
+					// ZiplineConnectionButton's card selects the connected tower on click and also
+					// carries its own "RemoveConnection" delete button, both with genuine handlers, one
+					// nested inside the other. Restricted to `element is Button` specifically (not
+					// composites like PreciseSlider/Dropdown, which are also caught by IsControl above
+					// but whose own nested Buttons - Decrease/Increase, ArrowLeft/ArrowRight - are
+					// deliberately internal, driven by ControlActivator's type-specific path rather than
+					// their own candidate slot).
+					if (element is Button)
+					{
+						CollectNestedActionButtons(element, into);
+					}
+
 					return true;
 				}
 
@@ -100,6 +115,36 @@ namespace ControllerSupport
 			}
 
 			return false;
+		}
+
+		// Finds real, independently-clickable Button descendants nested inside a Button that was just
+		// added as its own candidate - see the call site above. Stops descending the moment it finds
+		// one (a delete button has no further nested action buttons of its own to find), but keeps
+		// walking past anything that is not itself a genuine Button, same displayed/size gating as
+		// every other candidate.
+		private static void CollectNestedActionButtons(VisualElement element, List<VisualElement> into)
+		{
+			var children = element.hierarchy;
+			for (var i = 0; i < children.childCount; i++)
+			{
+				var child = children[i];
+				if (!IsDisplayed(child))
+				{
+					continue;
+				}
+
+				if (child is Button && !IsInertButton(child))
+				{
+					if (IsBigEnough(child))
+					{
+						into.Add(child);
+					}
+
+					continue;
+				}
+
+				CollectNestedActionButtons(child, into);
+			}
 		}
 
 		// A Button with no click handler of its own - see the comment above IsControl's use in

@@ -4,6 +4,10 @@ Reference notes gathered while building this mod, so the basics don't have to be
 re-discovered. Decompiled game source (AssetRipper) lives at
 `~/Documents/timberborn-exports/1.1.2.0-cf8e8d1-xsw/Scripts/`, one folder per assembly.
 
+**Update `CHANGELOG.md` whenever a fix/feature/change lands** - add an entry under
+`## [Unreleased]`'s `### Added`/`### Changed`/`### Fixed` (create the section if it's not there yet),
+matching the terse one-line-per-entry style already used for every prior release.
+
 ## Build / deploy
 
 - `tbuild` (`~/.local/bin/tbuild`) is the build script; it's also the default VSCode/Zed build task.
