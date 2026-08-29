@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Empfohlenes Controller-Layout
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ignorieren,
 KeyBinding.IncreaseFloodgateHeight,Schieberegler erhöhen,
 KeyBinding.DecreaseFloodgateHeight,Schieberegler verringern,
+KeyBinding.CursorHeightUp,Cursor-Höhe erhöhen,
+KeyBinding.CursorHeightDown,Cursor-Höhe verringern,

@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,推奨コントローラー�
 ControllerSupport.NoGamepadDialog.IgnoreButton,無視,
 KeyBinding.IncreaseFloodgateHeight,スライダーを上げる,
 KeyBinding.DecreaseFloodgateHeight,スライダーを下げる,
+KeyBinding.CursorHeightUp,カーソルの高さを上げる,
+KeyBinding.CursorHeightDown,カーソルの高さを下げる,

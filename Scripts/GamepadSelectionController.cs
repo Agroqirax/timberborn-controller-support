@@ -1,14 +1,17 @@
 using System;
 using Timberborn.AreaSelectionSystem;
+using Timberborn.BlockSystem;
 using Timberborn.BlueprintSystem;
 using Timberborn.CameraSystem;
 using Timberborn.Coordinates;
 using Timberborn.CursorToolSystem;
 using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
+using Timberborn.MapStateSystem;
 using Timberborn.SelectionSystem;
 using Timberborn.SingletonSystem;
 using Timberborn.TerrainQueryingSystem;
+using Timberborn.TerrainSystem;
 using Timberborn.ToolSystem;
 using Timberborn.WaterSystemRendering;
 using UnityEngine;
@@ -76,7 +79,6 @@ namespace ControllerSupport
 	internal class GamepadSelectionController : ILoadableSingleton, IUnloadableSingleton, IPriorityInputProcessor
 	{
 		private const float FailureLogInterval = 30f;
-		private const float RayHeight = 1000f;
 
 		// Matches the Id in this mod's own KeyBinding.ToggleSelectMode.blueprint.json - a keybind this
 		// mod defines from scratch (no vanilla equivalent), primary-bound to <Gamepad>/select.
@@ -107,6 +109,8 @@ namespace ControllerSupport
 		private readonly CameraService _cameraService;
 		private readonly ToolService _toolService;
 		private readonly TerrainPicker _terrainPicker;
+		private readonly ITerrainService _terrainService;
+		private readonly IBlockService _blockService;
 		private readonly PanelTracker _panelTracker;
 		private readonly EventBus _eventBus;
 		private readonly EntitySelectionService _entitySelectionService;
@@ -115,8 +119,10 @@ namespace ControllerSupport
 		private readonly RectangleBoundsDrawerFactory _rectangleBoundsDrawerFactory;
 		private readonly WaterOpacityService _waterOpacityService;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
+		private readonly MapSize _mapSize;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
+		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
 		private readonly GamepadMouseHandoff _handoff;
 
 		private RectangleBoundsDrawer _cursorBoundsDrawer;
@@ -126,19 +132,32 @@ namespace ControllerSupport
 		private bool _armPending;
 		private ITool _lastKnownActiveTool;
 		private Vector3Int _cursor;
+
+		// See GamepadBuildingPlacementController's own fields of the same names.
+		private bool _heightLocked;
+		private int _lockedHeight;
+
+		// The height this controller's own hand-built rays (TryPickSelectable, RefreshCursorHeight)
+		// originate from - GamepadCursorHeight.RayHeight by default, cursor.z + 1 once _heightLocked.
+		// See GamepadPlacementState.CursorRayOriginHeight for why this mirrors that field.
+		private float _rayOriginHeight = GamepadCursorHeight.RayHeight;
+
 		private float _nextFailureLogTime;
 
 		public GamepadSelectionController(InputService inputService, CameraService cameraService,
-			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker, EventBus eventBus,
+			ToolService toolService, TerrainPicker terrainPicker, ITerrainService terrainService,
+			IBlockService blockService, PanelTracker panelTracker, EventBus eventBus,
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
 			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
 			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry,
-			RecentInputDeviceTracker recentInputDeviceTracker)
+			RecentInputDeviceTracker recentInputDeviceTracker, MapSize mapSize)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
 			_terrainPicker = terrainPicker;
+			_terrainService = terrainService;
+			_blockService = blockService;
 			_panelTracker = panelTracker;
 			_eventBus = eventBus;
 			_entitySelectionService = entitySelectionService;
@@ -147,6 +166,7 @@ namespace ControllerSupport
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
+			_mapSize = mapSize;
 			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
 
@@ -272,14 +292,19 @@ namespace ControllerSupport
 
 			if (step != Vector2Int.zero)
 			{
-				_cursor += new Vector3Int(step.x, step.y, 0);
+				var moved = new Vector2Int(_cursor.x + step.x, _cursor.y + step.y);
+				var clamped = GamepadCursorHeight.ClampToMap(moved, _mapSize.TerrainSize2D);
+				_cursor.x = clamped.x;
+				_cursor.y = clamped.y;
 			}
 
-			// The stored z only ever comes from Engage()'s seed unless refreshed here - moving purely
+			// Free 3D movement, same as GamepadBuildingPlacementController/GamepadAreaSelectionController
+			// - the stored z only ever comes from Engage()'s seed unless refreshed here, and moving purely
 			// in x/y leaves it stale the instant the player crosses onto ground at a different height,
-			// which would draw the box below at the wrong level instead of tracking the terrain the
-			// way a real mouse cursor (and TryPickSelectable's own top-down ray) do.
-			RefreshCursorHeight();
+			// which would draw the box below at the wrong level instead of tracking the terrain (or
+			// whatever's dialled in with the height offset) the way a real mouse cursor would.
+			var heightStep = _heightStepReader.ReadStep(_inputService);
+			RefreshCursorHeight(heightStep);
 
 			GamepadPlacementState.ToolEngaged = true;
 			GamepadPlacementState.GridCursor = _cursor;
@@ -296,6 +321,13 @@ namespace ControllerSupport
 			// is the only thing that can select/deselect through it.
 			var mouseClickDown = _keyBindingRegistry.IsDown(MouseLeftKey);
 			GamepadPlacementState.Active = !mouseClickDown;
+
+			// Publish every active frame, even though nothing else reads this controller's own hand-
+			// built rays through it - a leftover value from a different tool must never bleed into this
+			// one. See GamepadPlacementState's own comment on CursorRayOriginHeight and this mod's notes
+			// on the shared-static clear hazard.
+			GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight;
+
 			if (!mouseClickDown)
 			{
 				GamepadPlacementState.MainMouseButtonDown = false;
@@ -335,36 +367,52 @@ namespace ControllerSupport
 			}
 		}
 
-		// Grid-space ray straight down through the cursor's cell, same construction
-		// CameraServicePlacementPatch uses - PickTerrainCoordinates wants grid space, the same as
-		// Engage()'s screen-centre seed below. Left alone on a miss (edge of the map, or a frame where
-		// the terrain query genuinely finds nothing) rather than snapping to a default height.
-		//
-		// CoordinatesWithFaceOffset, not Coordinates: TraversedCoordinates.Coordinates is the solid
-		// ground voxel the ray actually stopped on, one level *below* the empty cell a cursor or a
-		// placed building sits in. Drawing at Coordinates.z put the box embedded in the terrain,
-		// entirely hidden except for slivers poking out past a cliff face - CoordinatesWithFaceOffset
-		// (coordinates + face) is the same "one above" cell SelectableObjectRaycaster.HitTerrain
-		// reaches for via .Above() on a top hit.
-		private void RefreshCursorHeight()
+		// Free 3D movement - see GamepadCursorHeight.ApplyFreeHeight. `naturalTop` is a plain integer
+		// voxel scan (terrain OR block object, whichever is higher), not a raycast - see
+		// GamepadCursorHeight.NaturalTop for why that matters. `_rayOriginHeight` is what
+		// TryPickSelectable's own hand-built ray (and the box drawn below when nothing is hit) uses -
+		// GamepadCursorHeight.RayHeight while the offset is zero (identical to this controller's old,
+		// always-track-the-top behaviour), cursor.z + 1 once the player has genuinely moved away from
+		// that natural top.
+		private void RefreshCursorHeight(int heightStep)
 		{
-			var gridRay = new Ray(new Vector3(_cursor.x + 0.5f, _cursor.y + 0.5f, RayHeight), Down);
-			var picked = _terrainPicker.PickTerrainCoordinatesWithStump(gridRay);
-			if (picked.HasValue)
-			{
-				_cursor.z = picked.Value.CoordinatesWithFaceOffset.z;
-			}
+			var naturalTop = GamepadCursorHeight.NaturalTop(_terrainService, _blockService, _cursor.x, _cursor.y,
+				_mapSize.TotalSize.z);
+			_cursor.z = GamepadCursorHeight.ApplyFreeHeight(naturalTop, ref _heightLocked, ref _lockedHeight,
+				heightStep, _mapSize.TotalSize.z);
+			_rayOriginHeight = _heightLocked ? _cursor.z + 1f : GamepadCursorHeight.RayHeight;
 		}
 
 		// Same ray CameraServicePlacementPatch builds for the InGridSpace patch, only converted to
 		// world space instead of returned in grid space: SelectableObjectRaycaster runs
 		// Physics.Raycast, which only understands real GameObject colliders in world space.
+		//
+		// Physics.Raycast has no max distance here (SelectableObjectRaycaster doesn't take one), so a
+		// straight-down ray from _rayOriginHeight always hits the *nearest* thing below it, however far
+		// below that is - including something the player has long since risen well above. Left
+		// unchecked, raising the cursor above e.g. a stack of levees kept re-selecting the same top
+		// levee on every further press with no visible change, since there's nothing else up there to
+		// hit and a plain hit test can't tell "genuinely nothing here" from "something far below". Only
+		// accepting a hit whose own grid height lands within one cell of the cursor's own is what makes
+		// rising into genuine empty air actually deselect.
 		private bool TryPickSelectable(out SelectableObject selectable)
 		{
-			var gridRay = new Ray(new Vector3(_cursor.x + 0.5f, _cursor.y + 0.5f, RayHeight), Down);
+			var gridRay = new Ray(new Vector3(_cursor.x + 0.5f, _cursor.y + 0.5f, _rayOriginHeight), Down);
 			var worldRay = CoordinateSystem.GridToWorld(gridRay);
-			return _selectableObjectRaycaster.TryHitSelectableObjectIncludeTerrainStump(worldRay, out selectable,
-				out _);
+			if (!_selectableObjectRaycaster.TryHitSelectableObjectIncludeTerrainStump(worldRay, out selectable,
+				out var hit))
+			{
+				return false;
+			}
+
+			var hitGridZ = CoordinateSystem.WorldToGrid(hit.point).z;
+			if (hitGridZ < _cursor.z - 1f)
+			{
+				selectable = null;
+				return false;
+			}
+
+			return true;
 		}
 
 		// A toggle: pressed while already engaged, backs straight out - a second, independent way to
@@ -396,6 +444,9 @@ namespace ControllerSupport
 		{
 			_engaged = true;
 			_stepReader.Reset();
+			_heightStepReader.Reset();
+			_heightLocked = false;
+			_rayOriginHeight = GamepadCursorHeight.RayHeight;
 			_handoff.Reset();
 
 			// Seeds through the camera via PickTerrainCoordinates rather than a fixed-height plane -

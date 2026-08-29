@@ -8,6 +8,13 @@ re-discovered. Decompiled game source (AssetRipper) lives at
 `## [Unreleased]`'s `### Added`/`### Changed`/`### Fixed` (create the section if it's not there yet),
 matching the terse one-line-per-entry style already used for every prior release.
 
+## `.meta` files
+
+Never hand-write a `.meta` file. Unity regenerates them (new guid included) the next
+time the project is opened in the Editor - a mod source file with no `.meta` yet is
+fine to leave as-is until then. Deleting a stray/orphaned `.meta` is usually safe for
+the same reason - it comes back on the next Editor open.
+
 ## Build / deploy
 
 - `tbuild` (`~/.local/bin/tbuild`) is the build script; it's also the default VSCode/Zed build task.

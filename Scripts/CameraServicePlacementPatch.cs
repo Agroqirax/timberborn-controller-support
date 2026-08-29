@@ -16,21 +16,22 @@ namespace ControllerSupport
 	[HarmonyPatch(typeof(Timberborn.CameraSystem.CameraService))]
 	internal static class CameraServicePlacementPatch
 	{
-		// Well above any real map height (grid.z is world height in voxel units, and Timberborn maps
-		// never come close to this), so the ray always travels down from clear air onto whatever is
-		// actually there - same as a real mouse ray cast down from the camera. Starting the ray right
-		// at the target cell instead, as this used to, put its origin inside a tree or bush's own
-		// collider whenever one occupied that cell: a raycast that starts inside a collider does not
-		// register a hit for it, so the picker found nothing at all rather than an occupied cell,
-		// which is why obstructed cells showed no preview instead of the usual red one.
-		private const float RayHeight = 1000f;
-
+		// GamepadPlacementState.CursorRayOriginHeight defaults to GamepadCursorHeight.RayHeight - well
+		// above any real map height (grid.z is world height in voxel units, and Timberborn maps never
+		// come close to this), so the ray always travels down from clear air onto whatever is actually
+		// there - same as a real mouse ray cast down from the camera. Starting the ray right at the
+		// target cell instead, as this used to unconditionally, put its origin inside a tree or bush's
+		// own collider whenever one occupied that cell: a raycast that starts inside a collider does
+		// not register a hit for it, so the picker found nothing at all rather than an occupied cell,
+		// which is why obstructed cells showed no preview instead of the usual red one. Only a cursor
+		// genuinely moved away from its column's natural top (dpad up/down) switches this to originate
+		// near the chosen cell instead - see each controller's own height handling.
 		private static readonly Vector3 Down = new Vector3(0f, 0f, -1f);
 
 		private static Ray GridSpaceRay()
 		{
 			var cursor = GamepadPlacementState.GridCursor;
-			var origin = new Vector3(cursor.x + 0.5f, cursor.y + 0.5f, RayHeight);
+			var origin = new Vector3(cursor.x + 0.5f, cursor.y + 0.5f, GamepadPlacementState.CursorRayOriginHeight);
 			return new Ray(origin, Down);
 		}
 

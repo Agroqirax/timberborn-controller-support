@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Abrir configuración de mando
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ignorar,
 KeyBinding.IncreaseFloodgateHeight,Aumentar control deslizante,
 KeyBinding.DecreaseFloodgateHeight,Reducir control deslizante,
+KeyBinding.CursorHeightUp,Subir altura del cursor,
+KeyBinding.CursorHeightDown,Bajar altura del cursor,

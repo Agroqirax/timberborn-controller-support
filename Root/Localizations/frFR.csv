@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Ouvrir la configuration de ma
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ignorer,
 KeyBinding.IncreaseFloodgateHeight,Augmenter le curseur,
 KeyBinding.DecreaseFloodgateHeight,Réduire le curseur,
+KeyBinding.CursorHeightUp,Augmenter la hauteur du curseur,
+KeyBinding.CursorHeightDown,Diminuer la hauteur du curseur,

@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,เปิดเลย์เ�
 ControllerSupport.NoGamepadDialog.IgnoreButton,ไม่สนใจ,
 KeyBinding.IncreaseFloodgateHeight,เพิ่มแถบเลื่อน,
 KeyBinding.DecreaseFloodgateHeight,ลดแถบเลื่อน,
+KeyBinding.CursorHeightUp,เพิ่มระดับความสูงของเคอร์เซอร์,
+KeyBinding.CursorHeightDown,ลดระดับความสูงของเคอร์เซอร์,

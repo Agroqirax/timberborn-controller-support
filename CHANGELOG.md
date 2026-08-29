@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Early 3D gamepad cursor movement: dpad up/down nudges the building-placement/area-selection/select-tool cursor's height. Planting, un-planting and tree-cutting mark/unmark are forced onto real terrain levels only; every other tool (now including the MapEditor terrain sculpting brush) is free to move into mid-air for now
 - The Increase/Decrease Floodgate Height shoulders now also drive the mechanical/compact/deep pump's flow rate, water depth/flow/contamination sensor thresholds, the power meter's and resource counter's percent thresholds (when shown as a slider), and the weather station's early activation hours - whichever single slider the selected entity's panel is currently showing
 
 ### Fixed

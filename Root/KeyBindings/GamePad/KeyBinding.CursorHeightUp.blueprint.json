@@ -1,0 +1,15 @@
+{
+  "KeyBindingSpec": {
+    "Id": "CursorHeightUp",
+    "GroupId": "GamePad",
+    "LocKey": "KeyBinding.CursorHeightUp",
+    "Order": 25,
+    "AllowOtherModifiers": false,
+    "DevModeOnly": false
+  },
+  "PrimaryInputBindingSpec": {
+    "Path": "<Gamepad>/dpad/up",
+    "InputModifiers": "None",
+    "Unchangeable": false
+  }
+}

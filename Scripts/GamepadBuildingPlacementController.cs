@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using Timberborn.BlockObjectTools;
+using Timberborn.BlockSystem;
 using Timberborn.CameraSystem;
 using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
+using Timberborn.MapStateSystem;
 using Timberborn.SingletonSystem;
 using Timberborn.TerrainQueryingSystem;
+using Timberborn.TerrainSystem;
 using Timberborn.ToolSystem;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -48,27 +51,42 @@ namespace ControllerSupport
 		private readonly CameraService _cameraService;
 		private readonly ToolService _toolService;
 		private readonly TerrainPicker _terrainPicker;
+		private readonly ITerrainService _terrainService;
+		private readonly IBlockService _blockService;
 		private readonly PanelTracker _panelTracker;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
+		private readonly MapSize _mapSize;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
+		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
 		private readonly ConfirmReleaseGate _confirmGate;
 		private readonly GamepadMouseHandoff _handoff;
 
 		private bool _active;
 		private Vector3Int _cursor;
+
+		// See GamepadCursorHeight.ApplyFreeHeight - false means "follow the terrain, exactly like
+		// before this feature existed"; a CursorHeightUp/Down press locks it true and _lockedHeight
+		// becomes the absolute height from then on, independent of whatever column the cursor is over.
+		private bool _heightLocked;
+		private int _lockedHeight;
+
 		private float _nextFailureLogTime;
 
 		public GamepadBuildingPlacementController(InputService inputService, CameraService cameraService,
-			ToolService toolService, TerrainPicker terrainPicker, PanelTracker panelTracker,
-			KeyBindingRegistry keyBindingRegistry, RecentInputDeviceTracker recentInputDeviceTracker)
+			ToolService toolService, TerrainPicker terrainPicker, ITerrainService terrainService,
+			IBlockService blockService, PanelTracker panelTracker, KeyBindingRegistry keyBindingRegistry,
+			RecentInputDeviceTracker recentInputDeviceTracker, MapSize mapSize)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
 			_terrainPicker = terrainPicker;
+			_terrainService = terrainService;
+			_blockService = blockService;
 			_panelTracker = panelTracker;
 			_keyBindingRegistry = keyBindingRegistry;
+			_mapSize = mapSize;
 			_confirmGate = new ConfirmReleaseGate(inputService);
 			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
@@ -148,8 +166,22 @@ namespace ControllerSupport
 			{
 				if (step != Vector2Int.zero)
 				{
-					_cursor += new Vector3Int(step.x, step.y, 0);
+					var moved = new Vector2Int(_cursor.x + step.x, _cursor.y + step.y);
+					var clamped = GamepadCursorHeight.ClampToMap(moved, _mapSize.TerrainSize2D);
+					_cursor.x = clamped.x;
+					_cursor.y = clamped.y;
 				}
+
+				// Free 3D movement for now - no notion of "terrain" here, so the ghost can be nudged
+				// into mid-air. Rules for when/whether that should be allowed come later; this is the
+				// baseline the user asked to try first.
+				var naturalTop = GamepadCursorHeight.NaturalTop(_terrainService, _blockService, _cursor.x, _cursor.y,
+					_mapSize.TotalSize.z);
+				var heightStep = _heightStepReader.ReadStep(_inputService);
+				_cursor.z = GamepadCursorHeight.ApplyFreeHeight(naturalTop, ref _heightLocked, ref _lockedHeight,
+					heightStep, _mapSize.TotalSize.z);
+				GamepadPlacementState.CursorRayOriginHeight =
+					_heightLocked ? _cursor.z + 1f : GamepadCursorHeight.RayHeight;
 
 				GamepadPlacementState.Active = true;
 				GamepadPlacementState.GridCursor = _cursor;
@@ -191,6 +223,7 @@ namespace ControllerSupport
 			if (mousePicked.HasValue)
 			{
 				_cursor = mousePicked.Value.Coordinates;
+				_heightLocked = false;
 			}
 		}
 
@@ -224,6 +257,8 @@ namespace ControllerSupport
 		{
 			_active = true;
 			_stepReader.Reset();
+			_heightStepReader.Reset();
+			_heightLocked = false;
 			_confirmGate.Arm();
 			_handoff.Reset();
 

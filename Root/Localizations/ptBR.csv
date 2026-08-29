@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Abrir layout de controle reco
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ignorar,
 KeyBinding.IncreaseFloodgateHeight,Aumentar controle deslizante,
 KeyBinding.DecreaseFloodgateHeight,Reduzir controle deslizante,
+KeyBinding.CursorHeightUp,Aumentar altura do cursor,
+KeyBinding.CursorHeightDown,Diminuir altura do cursor,

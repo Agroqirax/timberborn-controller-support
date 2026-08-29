@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Otwórz zalecany układ kontr
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ignoruj,
 KeyBinding.IncreaseFloodgateHeight,Zwiększ suwak,
 KeyBinding.DecreaseFloodgateHeight,Zmniejsz suwak,
+KeyBinding.CursorHeightUp,Podnieś wysokość kursora,
+KeyBinding.CursorHeightDown,Obniż wysokość kursora,

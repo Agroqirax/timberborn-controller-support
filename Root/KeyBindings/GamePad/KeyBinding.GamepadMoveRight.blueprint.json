@@ -13,7 +13,7 @@
     "Unchangeable": false
   },
   "SecondaryInputBindingSpec": {
-    "Path": "<Gamepad>/dpad/right",
+    "Path": "<Keyboard>/rightArrow",
     "InputModifiers": "None",
     "Unchangeable": false
   }

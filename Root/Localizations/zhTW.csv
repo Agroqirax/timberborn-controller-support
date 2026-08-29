@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,開啟推薦的控制器配�
 ControllerSupport.NoGamepadDialog.IgnoreButton,忽略,
 KeyBinding.IncreaseFloodgateHeight,增加滑桿,
 KeyBinding.DecreaseFloodgateHeight,減少滑桿,
+KeyBinding.CursorHeightUp,提高游標高度,
+KeyBinding.CursorHeightDown,降低游標高度,

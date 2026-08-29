@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Відкрити рекоме
 ControllerSupport.NoGamepadDialog.IgnoreButton,Ігнорувати,
 KeyBinding.IncreaseFloodgateHeight,Збільшити повзунок,
 KeyBinding.DecreaseFloodgateHeight,Зменшити повзунок,
+KeyBinding.CursorHeightUp,Підняти висоту курсора,
+KeyBinding.CursorHeightDown,Опустити висоту курсора,

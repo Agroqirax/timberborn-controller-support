@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,Önerilen Denetleyici Düzeni
 ControllerSupport.NoGamepadDialog.IgnoreButton,Yoksay,
 KeyBinding.IncreaseFloodgateHeight,Kaydırıcıyı arttır,
 KeyBinding.DecreaseFloodgateHeight,Kaydırıcıyı azalt,
+KeyBinding.CursorHeightUp,İmleç yüksekliğini artır,
+KeyBinding.CursorHeightDown,İmleç yüksekliğini azalt,

@@ -11,3 +11,5 @@ ControllerSupport.NoGamepadDialog.OpenLayoutButton,권장 컨트롤러 레이아
 ControllerSupport.NoGamepadDialog.IgnoreButton,무시,
 KeyBinding.IncreaseFloodgateHeight,슬라이더 증가,
 KeyBinding.DecreaseFloodgateHeight,슬라이더 감소,
+KeyBinding.CursorHeightUp,커서 높이 올리기,
+KeyBinding.CursorHeightDown,커서 높이 내리기,
