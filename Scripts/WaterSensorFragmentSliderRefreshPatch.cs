@@ -76,4 +76,36 @@ namespace ControllerSupport
 			slider.UpdateValuesWithoutNotify(sensor.Threshold, 1f);
 		}
 	}
+
+	// ResourceCounterFragment has the exact same gap for its FillRate mode slider - UpdateFragment
+	// refreshes the label and the marker every tick but never re-syncs the slider handle itself,
+	// only setting it once from ShowFragment. Same fix, same reason: GamepadEntitySliderController's
+	// shoulder-driven ProcessResourceCounter changes FillRateThreshold from outside the slider.
+	[HarmonyPatch]
+	internal static class ResourceCounterFragmentSliderRefreshPatch
+	{
+		private static readonly System.Type FragmentType =
+			AccessTools.TypeByName("Timberborn.AutomationBuildingsUI.ResourceCounterFragment");
+
+		private static readonly FieldInfo ResourceCounterField = AccessTools.Field(FragmentType, "_resourceCounter");
+		private static readonly FieldInfo SliderField = AccessTools.Field(FragmentType, "_fillRateSlider");
+
+		private static MethodBase TargetMethod()
+		{
+			return AccessTools.Method(FragmentType, "UpdateFragment");
+		}
+
+		[HarmonyPostfix]
+		private static void Postfix(object __instance)
+		{
+			var resourceCounter = (ResourceCounter)ResourceCounterField.GetValue(__instance);
+			if (!resourceCounter)
+			{
+				return;
+			}
+
+			var slider = (PreciseSlider)SliderField.GetValue(__instance);
+			slider.UpdateValuesWithoutNotify(resourceCounter.FillRateThreshold, 1f);
+		}
+	}
 }
