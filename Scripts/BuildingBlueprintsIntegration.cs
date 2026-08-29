@@ -177,15 +177,6 @@ namespace ControllerSupport
 
 		private static class DemolishToolPostfix
 		{
-			// Straight down from well above any real terrain height, same construction
-			// CameraServicePlacementPatch.GridSpaceRay() uses - the only way to learn the *current*
-			// terrain height under the cursor, since GamepadPlacementState.GridCursor.z is set once at
-			// Activate() and never re-derived as x/y change with the stick (nothing else needed it to be,
-			// since every existing ray construction in this mod already ignores it - see
-			// GamepadPlacementState.TerrainPicker's own comment).
-			private const float RayHeight = 1000f;
-			private static readonly Vector3 Down = new Vector3(0f, 0f, -1f);
-
 			public static FieldInfo RaycasterField;
 			public static FieldInfo GroupServiceField;
 			public static PropertyInfo HasGroupProperty;
@@ -207,9 +198,8 @@ namespace ControllerSupport
 					return;
 				}
 
-				var terrainPicker = GamepadPlacementState.TerrainPicker;
 				var drawer = GetCursorDrawer();
-				if (terrainPicker == null || drawer == null)
+				if (drawer == null)
 				{
 					return;
 				}
@@ -218,17 +208,17 @@ namespace ControllerSupport
 				{
 					if (!HasDemolishableGroup(__instance))
 					{
+						// GridCursor is already the surface cell (the empty one resting on whatever is
+						// being pointed at), refreshed every frame including as the stick moves x/y - so
+						// this just draws there. It used to re-derive the ground with its own straight-down
+						// TerrainPicker ray from 1000f, plus a +1 to convert that picker's solid voxel into
+						// the surface cell above it, because GridCursor.z was then only ever seeded at
+						// Activate() and went stale the moment the cursor moved. That is no longer true,
+						// and re-deriving now actively hurts: it would ignore the level the player dialled
+						// in with CursorHeightUp/Down and always snap the box back to the topmost terrain.
 						var cursor = GamepadPlacementState.GridCursor;
-						var origin = new Vector3(cursor.x + 0.5f, cursor.y + 0.5f, RayHeight);
-						// TerrainPicker.PickTerrainCoordinates returns the solid ground voxel itself, not
-						// the walkable surface cell above it - the same +1 Timberborn.TerrainQueryingSystem.
-						// TerrainAreaService.InMapLeveledCoordinates already applies for every other tool's
-						// own preview drawing (that's what CreateBuildingBlueprintTool's box rides on for
-						// free, via BlockObjectSelectionDrawer/AreaBlockObjectPicker). Skipping it here drew
-						// this tool's box one level into the ground.
-						var groundZ = (terrainPicker.PickTerrainCoordinates(new Ray(origin, Down))?.Coordinates.z + 1) ?? cursor.z;
 						var xy = new Vector2Int(cursor.x, cursor.y);
-						drawer.DrawOnLevel(xy, xy, groundZ);
+						drawer.DrawOnLevel(xy, xy, cursor.z);
 					}
 				}
 				catch (Exception e)

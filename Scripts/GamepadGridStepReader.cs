@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace ControllerSupport
 {
-	// Turns the stick and d-pad into one grid step at a time, camera-relative: "up" on the stick
+	// Turns the stick into one grid step at a time, camera-relative: "up" on the stick
 	// always nudges away from the camera, not up the screen, so nudging the placement ghost feels
 	// right no matter which way the camera is currently facing.
 	//
@@ -59,8 +59,10 @@ namespace ControllerSupport
 		{
 			var threshold = _heldDirection == Vector2Int.zero ? PressZone : ReleaseZone;
 
-			// See GamepadReader.ReadDirection for why one read of GamepadMoveUp/Down/Left/Right already
-			// covers both the left stick and the d-pad.
+			// One read of GamepadMoveUp/Down/Left/Right covers the left stick and the keyboard arrows.
+			// The d-pad is deliberately not on this axis any more: its vertical half is CursorHeightUp/
+			// Down, the cursor's own height control, which cannot share an action with "move north"
+			// without one press doing both.
 			var stick = GamepadAxis.Read(registry, GamepadAxis.Move);
 			return stick.magnitude >= threshold ? Quantize(Rotate(stick, cameraHorizontalAngle)) : Vector2Int.zero;
 		}

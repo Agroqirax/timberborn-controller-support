@@ -5,6 +5,7 @@ using Timberborn.AreaSelectionSystem;
 using Timberborn.BlockObjectTools;
 using Timberborn.BlockSystem;
 using Timberborn.BlueprintSystem;
+using Timberborn.Brushes;
 using Timberborn.CameraSystem;
 using Timberborn.Coordinates;
 using Timberborn.DemolishingUI;
@@ -38,9 +39,10 @@ namespace ControllerSupport
 	// click-drag-release.
 	//
 	// SculptingTerrainBrushTool (MapEditor only) is in this list too, now that the cursor genuinely
-	// moves in z (CursorHeightUp/Down) - it gets free height, the same as every other tool here except
-	// the four terrain-snapped ones, since sculpting terrain at a chosen height in mid-air is the whole
-	// point of the tool. It reaches AreaSelectionController the same way as everything else here -
+	// moves in z (CursorHeightUp/Down). It moves freely in mid-air, like most tools here - putting
+	// terrain where there is none is the whole point of it - and it is the only one whose picker has to
+	// be short-circuited outright for that to take effect (see SculptingTerrainPickerPatch). It reaches
+	// AreaSelectionController the same way as everything else here -
 	// SculptingTerrainPicker.PickTerrainAreaToAdd/Remove both wrap
 	// AreaSelectionController.ProcessInput - so nothing tool-specific was needed beyond adding it to
 	// IsAreaSelectionTool below.
@@ -113,13 +115,12 @@ namespace ControllerSupport
 		private readonly ToolService _toolService;
 		private readonly TerrainPicker _terrainPicker;
 		private readonly ITerrainService _terrainService;
-		private readonly IBlockService _blockService;
+		private readonly GamepadCursorLevels _cursorLevels;
 		private readonly PanelTracker _panelTracker;
 		private readonly MarkerDrawerFactory _markerDrawerFactory;
 		private readonly RectangleBoundsDrawerFactory _rectangleBoundsDrawerFactory;
 		private readonly ISpecService _specService;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
-		private readonly MapSize _mapSize;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
@@ -129,32 +130,38 @@ namespace ControllerSupport
 		private bool _active;
 		private Vector3Int _cursor;
 
-		// See GamepadBuildingPlacementController's own fields of the same names - only meaningful for
-		// tools that don't require terrain snapping (see RequiresTerrainSnap).
+		// Which of the current column's real levels the cursor is on, for every tool except the
+		// sculpting brush - see GamepadCursorLevels.
+		private GamepadCursorLevelTracker _levelTracker;
+
+		// Only used by SculptingTerrainBrushTool, the one tool here that gets free mid-air movement
+		// instead of levels - see GamepadCursorHeight.ApplyFreeHeight.
 		private bool _heightLocked;
 		private int _lockedHeight;
+
+		// Last published GamepadPlacementState.CursorRayOriginHeight, kept so a drag can go on
+		// republishing the value from its own press frame - see the `dragging` branch in Update.
+		private float _rayOriginHeight = GamepadCursorLevels.RayHeight;
 
 		private float _nextFailureLogTime;
 
 		public GamepadAreaSelectionController(InputService inputService, CameraService cameraService,
 			ToolService toolService, TerrainPicker terrainPicker, ITerrainService terrainService,
-			IBlockService blockService, PanelTracker panelTracker, MarkerDrawerFactory markerDrawerFactory,
+			GamepadCursorLevels cursorLevels, PanelTracker panelTracker, MarkerDrawerFactory markerDrawerFactory,
 			RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory, ISpecService specService,
-			KeyBindingRegistry keyBindingRegistry, RecentInputDeviceTracker recentInputDeviceTracker,
-			MapSize mapSize)
+			KeyBindingRegistry keyBindingRegistry, RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
 			_terrainPicker = terrainPicker;
 			_terrainService = terrainService;
-			_blockService = blockService;
+			_cursorLevels = cursorLevels;
 			_panelTracker = panelTracker;
 			_markerDrawerFactory = markerDrawerFactory;
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
-			_mapSize = mapSize;
 			_confirmGate = new ConfirmReleaseGate(inputService);
 			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
@@ -169,13 +176,11 @@ namespace ControllerSupport
 			GamepadPlacementState.InvalidBoxColor = GetSculptingNegativeColor();
 
 			// Published for optional-mod Harmony patches with no constructor DI of their own (see
-			// GamepadPlacementState.BoundsDrawerFactory/SpecService/TerrainPicker) - e.g.
+			// GamepadPlacementState.BoundsDrawerFactory/SpecService) - e.g.
 			// BuildingBlueprintsIntegration.DemolishToolPostfix, which needs its own correctly-coloured
-			// RectangleBoundsDrawer and the real terrain height under the cursor, neither of which
-			// InvalidTileDrawer/InvalidColor above are the right fit for.
+			// RectangleBoundsDrawer, which InvalidTileDrawer/InvalidColor above are not the right fit for.
 			GamepadPlacementState.BoundsDrawerFactory = _rectangleBoundsDrawerFactory;
 			GamepadPlacementState.SpecService = _specService;
-			GamepadPlacementState.TerrainPicker = _terrainPicker;
 		}
 
 		// TreeCuttingColorsSpec is internal to Timberborn.ForestryUI, so it can't be named as a generic
@@ -258,18 +263,24 @@ namespace ControllerSupport
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 			var confirmDown = _inputService.IsKeyDown(ConfirmKey);
 
+			// Read before the handoff, and fed into it: a height press is genuine gamepad activity, so
+			// on a frame the mouse was last in control it has to be what takes control back. Reading it
+			// inside the gamepad branch instead - as this used to - meant CursorHeightUp/Down did
+			// nothing at all until the player first nudged the stick, since the branch that polls it
+			// was exactly the branch a height press was supposed to re-enter.
+			var heightStep = _heightStepReader.ReadStep(_inputService);
+
 			// See GamepadBuildingPlacementController.Update - the tool is engaged this frame
 			// regardless of which device ends up driving the cursor below, and
 			// GamepadNavigationInputProcessor reads this flag, not Active, to stand down for the
 			// tool's whole lifetime rather than only the frames the stick happens to be moving it.
 			GamepadPlacementState.ToolEngaged = true;
 
-			if (_handoff.Update(step, confirmDown))
+			if (_handoff.Update(step, confirmDown || heightStep != 0))
 			{
 				if (step != Vector2Int.zero)
 				{
-					var moved = new Vector2Int(_cursor.x + step.x, _cursor.y + step.y);
-					var clamped = GamepadCursorHeight.ClampToMap(moved, _mapSize.TerrainSize2D);
+					var clamped = _cursorLevels.ClampToMap(new Vector2Int(_cursor.x + step.x, _cursor.y + step.y));
 					_cursor.x = clamped.x;
 					_cursor.y = clamped.y;
 				}
@@ -278,28 +289,91 @@ namespace ControllerSupport
 
 				// Published every active frame - see SculptingTerrainPickerPatch for why this specific
 				// tool needs its own picker patched to make CursorHeightUp/Down do anything at all.
-				GamepadPlacementState.SculptingActive = activeTool is SculptingTerrainBrushTool;
+				var sculpting = activeTool is SculptingTerrainBrushTool;
+				GamepadPlacementState.SculptingActive = sculpting;
 
-				var heightStep = _heightStepReader.ReadStep(_inputService);
-				if (RequiresTerrainSnap(activeTool))
+				// Evaluated here rather than just before the button state is published, because the drag
+				// check below needs it: a Confirm still held over from the press that opened this tool
+				// isn't a drag, it's a press this controller is deliberately swallowing.
+				var suppressConfirm = _confirmGate.ShouldSuppress();
+				var dragging = !suppressConfirm && !confirmDown && _inputService.IsKeyHeld(ConfirmKey);
+
+				// Only the terrain-bound tools step through levels; everything else here moves freely.
+				// Published every active frame, and only for a brush with a real footprint - see
+				// GamepadPlacementState.ExactTerrainPick and TerrainPickerExactCellPatch.
+				var terrainBrush = TerrainBrush(activeTool);
+				var terrainLevels = terrainBrush != null || RequiresTerrainLevels(activeTool);
+				GamepadPlacementState.ExactTerrainPick = terrainBrush != null;
+
+				var xy = new Vector2Int(_cursor.x, _cursor.y);
+				if (dragging)
 				{
-					// Can't mark air in between two terrain layers - only ever lands on a real level.
-					var xy = new Vector2Int(_cursor.x, _cursor.y);
-					_cursor.z = GamepadCursorHeight.ApplyTerrainSnappedHeight(_terrainService, xy, _cursor.z,
-						heightStep, out var isTopLevel);
-					GamepadPlacementState.CursorRayOriginHeight =
-						isTopLevel ? GamepadCursorHeight.RayHeight : _cursor.z + 1f;
+					// A drag is flat by construction - every one of these tools resolves its end point
+					// by intersecting the end ray with a horizontal plane at the *start's* level
+					// (AreaSelector.GetSelectionEnd, AreaPicker.GetTerrainBlocks,
+					// SculptingTerrainPicker), then flattens the resulting rectangle to that level
+					// again. So re-deriving height mid-drag can only do harm, and one specific harm is
+					// severe: Plane.Raycast returns false for a ray that starts *below* the plane it is
+					// asked about, so a cursor that dropped to a lower level partway through a drag
+					// made the end point resolve to nothing and the whole selection silently collapsed
+					// back to its single starting cell. Holding both the level and the published ray
+					// origin still for the duration removes that entirely.
+					GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight;
+				}
+				else if (sculpting)
+				{
+					// The one tool here that gets genuinely free mid-air movement - creating terrain
+					// where none exists is the whole point of it, so snapping to existing levels would
+					// defeat it. Seeded from the terrain surface so it starts where a mouse would.
+					_cursor.z = GamepadCursorHeight.ApplyFreeHeight(_cursorLevels.TerrainTop(xy), ref _heightLocked,
+						ref _lockedHeight, heightStep, _cursorLevels.SculptCeilingExclusive);
+
+					// No RayHeight sentinel branch here, unlike every other tool: the sculpting picker
+					// is short-circuited outright (SculptingTerrainPickerPatch), so the ray's own origin
+					// is the only channel carrying the chosen cell and it has to be exact on every
+					// frame, not just the ones where the cursor has left its column's surface.
+					GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight = GamepadCursorLevels.RayOriginFor(_cursor.z);
+				}
+				else if (terrainLevels)
+				{
+					// Planting, tree cutting and the MapEditor brushes can only ever act on a real
+					// terrain surface, so the cursor steps between those rather than floating between
+					// them - see GamepadCursorLevels. For a brush the set is the union over its whole
+					// footprint, not just the cell under the cursor: an overhang the brush partly covers
+					// but whose centre column misses was otherwise unreachable.
+					var levels = terrainBrush != null
+						? _cursorLevels.TerrainLevels(xy, terrainBrush.BrushSize, BrushShapeOf(activeTool))
+						: _cursorLevels.TerrainLevels(xy);
+					_cursor.z = _levelTracker.Apply(levels, heightStep, _cursor.z, out var isTopLevel);
+
+					// A brush always publishes its exact cell, never the RayHeight shorthand, even at the
+					// top of its range. RayHeight means "let the picker find the surface itself", and for
+					// a brush that answer is the *centre column's* surface - which is precisely the one
+					// the footprint union exists to disagree with. Sitting on the highest level of the
+					// union while the centre column tops out lower would otherwise silently snap back
+					// down. Every other terrain tool has a per-column set the picker already agrees with,
+					// so it keeps the shorthand.
+					GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight =
+						isTopLevel && terrainBrush == null ? GamepadCursorLevels.RayHeight : GamepadCursorLevels.RayOriginFor(_cursor.z);
 				}
 				else
 				{
-					// Free 3D movement for now - every other tool here can be nudged into mid-air.
-					// Rules for when/whether that should be allowed come later.
-					var naturalTop = GamepadCursorHeight.NaturalTop(_terrainService, _blockService, _cursor.x,
-						_cursor.y, _mapSize.TotalSize.z);
-					_cursor.z = GamepadCursorHeight.ApplyFreeHeight(naturalTop, ref _heightLocked, ref _lockedHeight,
-						heightStep, _mapSize.TotalSize.z);
-					GamepadPlacementState.CursorRayOriginHeight =
-						_heightLocked ? _cursor.z + 1f : GamepadCursorHeight.RayHeight;
+					// Free movement for every other tool - priority, demolish, deletion, the blueprint
+					// tools. None of them are constrained to terrain, so the cursor goes wherever the
+					// player puts it and the tool acts on whatever the ray finds from there.
+					//
+					// HoverCell, not SurfaceTop, and RayOriginFor(_cursor.z + 1), not
+					// RayOriginFor(_cursor.z): every tool in this branch picks a block object with a
+					// physics raycast, so _cursor.z is the cell whose *contents* are the target - the
+					// same cell BlockObjectSelectionDrawer then draws its box around. Aiming a voxel
+					// lower meant the ray started inside the thing being pointed at and fell through to
+					// whatever was beneath, so one press down a stack of levees skipped past the next
+					// levee entirely and landed on the ground.
+					_cursor.z = GamepadCursorHeight.ApplyFreeHeight(_cursorLevels.HoverCell(xy), ref _heightLocked,
+						ref _lockedHeight, heightStep, _cursorLevels.CeilingExclusive);
+					GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight = _heightLocked
+						? GamepadCursorLevels.RayOriginFor(_cursor.z + 1)
+						: GamepadCursorLevels.RayHeight;
 				}
 
 				GamepadPlacementState.Active = true;
@@ -329,7 +403,7 @@ namespace ControllerSupport
 				// that press's eventual release, which is all AreaSelectionController-driven tools
 				// (planting, tree-cutting, priority, demolish, deletion) need to commit at the hover
 				// position with no real Down ever having happened this activation.
-				if (_confirmGate.ShouldSuppress())
+				if (suppressConfirm)
 				{
 					GamepadPlacementState.MainMouseButtonDown = false;
 					GamepadPlacementState.MainMouseButtonHeld = false;
@@ -359,8 +433,16 @@ namespace ControllerSupport
 			var mousePicked = _terrainPicker.PickTerrainCoordinates(mouseRay);
 			if (mousePicked.HasValue)
 			{
-				_cursor = mousePicked.Value.Coordinates;
+				// CoordinatesWithFaceOffset, not Coordinates: everything else in this class treats
+				// _cursor.z as the empty cell resting on top of what the tool acts on, and the picker
+				// hands back the solid voxel itself. Seeding the solid one here was a silent off-by-one
+				// straight into the level tracker on the next gamepad frame.
+				_cursor = mousePicked.Value.CoordinatesWithFaceOffset;
 				_heightLocked = false;
+
+				// Resume at the height the mouse was last pointing at rather than snapping back to the
+				// top of the column the instant the stick moves again.
+				_levelTracker.Prefer(_cursor.z);
 			}
 		}
 
@@ -469,20 +551,53 @@ namespace ControllerSupport
 			return false;
 		}
 
-		// The four tools this feature's first pass forces onto real terrain - can't mark the empty air
-		// between two platform layers for planting or tree-cutting. Every other area-selection tool
-		// gets free vertical movement instead (see RequiresTerrainSnap's caller); narrower rules for
-		// those come later. TreeCuttingAreaUnselectionTool is internal, matched by name the same way
-		// IsAreaSelectionTool already does for it above.
-		private static bool RequiresTerrainSnap(ITool tool)
+		// Which tools are bound to real terrain surfaces, and therefore step between levels rather than
+		// moving freely. Not a preference - it has to match what the tool's own picker will resolve the
+		// injected ray to, or the drawn cursor and the tool's preview end up at different heights.
+		//
+		// These are the ones that bottom out in TerrainPicker/TerrainAreaService and cannot see block
+		// objects at all: planting and un-planting, tree-cutting marking/unmarking (base game plus the
+		// two workshop cutting mods, which are the same SelectionToolProcessor shape), and the MapEditor
+		// height and natural-resource brushes. Everything else here - builder priority, demolish
+		// marking/unmarking, every BlockObjectDeletionTool<T>, the two BuildingBlueprints area tools and
+		// FPPCameraActivationTool - reaches a cell through a physics raycast against block-object
+		// colliders with a terrain fallback, so there is no reason to pin it to the ground.
+		private static bool RequiresTerrainLevels(ITool tool)
 		{
 			if (tool is PlantingTool || tool is CancelPlantingTool || tool is TreeCuttingAreaSelectionTool)
 			{
 				return true;
 			}
 
-			return tool?.GetType().FullName == "Timberborn.ForestryUI.TreeCuttingAreaUnselectionTool";
+			// TreeCuttingAreaUnselectionTool is internal, matched by name the same way IsAreaSelectionTool
+			// already does for it; the two cutting mods are external and only reachable by name at all.
+			return TerrainLevelToolTypeNames.Contains(tool?.GetType().FullName);
 		}
+
+		// The brush tools carry their own footprint, and the game exposes it through two public
+		// interfaces (Timberborn.Brushes) rather than as anything tool-specific - so this needs no name
+		// list and picks up any future brush for free. It catches exactly the four that want it: the
+		// absolute and relative height brushes and the two natural-resource brushes. Notably
+		// SculptingTerrainBrushTool is *not* IBrushWithSize (it drags a rectangle rather than stamping a
+		// shape), so it falls out of here on its own and keeps its free mid-air height.
+		private static IBrushWithSize TerrainBrush(ITool tool)
+		{
+			return tool as IBrushWithSize;
+		}
+
+		// IBrushWithShape is separate from IBrushWithSize and not every sized brush has it (the
+		// natural-resource brushes are square-only), so this defaults rather than requiring both.
+		private static BrushShape BrushShapeOf(ITool tool)
+		{
+			return tool is IBrushWithShape shaped ? shaped.BrushShape : BrushShape.Square;
+		}
+
+		private static readonly HashSet<string> TerrainLevelToolTypeNames = new HashSet<string>
+		{
+			"Timberborn.ForestryUI.TreeCuttingAreaUnselectionTool",
+			"Cordial.Mods.CutterTool.Scripts.CutterToolService",
+			"SourcePulp.GridCutting.PatternCuttingTool",
+		};
 
 		private void Activate()
 		{
@@ -490,15 +605,18 @@ namespace ControllerSupport
 			_stepReader.Reset();
 			_heightStepReader.Reset();
 			_heightLocked = false;
+			_levelTracker.Reset();
+			_rayOriginHeight = GamepadCursorLevels.RayHeight;
 			_confirmGate.Arm();
 			_handoff.Reset();
 
 			// See GamepadBuildingPlacementController.Activate for why this seeds through the camera via
-			// PickTerrainCoordinates instead of a fixed-height plane.
+			// PickTerrainCoordinates instead of a fixed-height plane, and why it takes
+			// CoordinatesWithFaceOffset rather than Coordinates.
 			var screenCentre = new Vector2(Screen.width / 2f, Screen.height / 2f);
 			var ray = _cameraService.ScreenPointToRayInGridSpace(screenCentre);
 			var picked = _terrainPicker.PickTerrainCoordinates(ray);
-			_cursor = picked?.Coordinates ?? Vector3Int.zero;
+			_cursor = picked?.CoordinatesWithFaceOffset ?? Vector3Int.zero;
 		}
 
 		// Guarded, not unconditional - see GamepadBuildingPlacementController.Deactivate for why:

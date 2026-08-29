@@ -1,7 +1,6 @@
 using Timberborn.AreaSelectionSystem;
 using Timberborn.BlueprintSystem;
 using Timberborn.Rendering;
-using Timberborn.TerrainQueryingSystem;
 using UnityEngine;
 
 namespace ControllerSupport
@@ -25,19 +24,19 @@ namespace ControllerSupport
 		public static Vector3Int GridCursor;
 
 		// The height CameraServicePlacementPatch's own straight-down ray originates from - defaults to
-		// GamepadCursorHeight.RayHeight (see that class), so a cursor left at its natural terrain-top
-		// height behaves exactly as it did before 3D cursor movement existed. Only a controller whose
-		// cursor is genuinely away from that natural top (dpad up/down pressed) sets this to something
-		// tied to GridCursor.z instead - see GamepadCursorHeight and each controller's own Update().
+		// GamepadCursorLevels.RayHeight (see that class), which is what a cursor sitting on its column's
+		// topmost level publishes, so the common case behaves exactly as it did before 3D cursor
+		// movement existed. A cursor on any lower level publishes GridCursor.z + 1 instead, so the
+		// traversal's first step is the cursor's own cell and its second is the thing under it.
 		// Every writer of GridCursor must publish this too, every active frame, for the same reason
 		// GridCursor itself has to be - see GamepadPlacementState's own remaining fields' comments and
 		// this mod's notes on the shared-static clear/write hazard.
-		public static float CursorRayOriginHeight = GamepadCursorHeight.RayHeight;
+		public static float CursorRayOriginHeight = GamepadCursorLevels.RayHeight;
 
 		// True only while GamepadAreaSelectionController is actively driving SculptingTerrainBrushTool
 		// - see SculptingTerrainPickerPatch for why that one tool needs its own picker short-circuited
-		// to let CursorHeightUp/Down do anything, and GamepadCursorHeight.NaturalTop's own comment for
-		// why every other tool doesn't need this. Published every active frame for the same shared-
+		// to let CursorHeightUp/Down do anything, and GamepadCursorLevels' own comment for why every
+		// other tool doesn't need this. Published every active frame for the same shared-
 		// static reason as CursorRayOriginHeight; Clear() resets it too.
 		public static bool SculptingActive;
 
@@ -51,6 +50,17 @@ namespace ControllerSupport
 		// GamepadAreaSelectionController.Update), not re-evaluated every frame, so a drag can't flip
 		// from adding to removing partway through just because the cursor crossed onto existing terrain.
 		public static bool SculptAdd = true;
+
+		// True only while GamepadAreaSelectionController is driving a MapEditor terrain brush that has a
+		// size (IBrushWithSize) - the absolute/relative height brushes and the natural-resource brushes.
+		// Those resolve their own origin with TerrainPicker.PickTerrainCoordinates on the cursor's own
+		// column, which would discard a level the cursor only reached because it exists elsewhere under
+		// the brush; TerrainPickerExactCellPatch reads this to hand back the cursor's actual cell
+		// instead. Scoped this narrowly because that same picker is also how SelectableObjectRaycaster
+		// decides whether terrain occludes an object, and how planting and tree-cutting find their own
+		// cells - none of which want their answer replaced. Published every active frame for the same
+		// shared-static reason as CursorRayOriginHeight; Clear() resets it too.
+		public static bool ExactTerrainPick;
 
 		public static bool MainMouseButtonDown;
 		public static bool MainMouseButtonHeld;
@@ -101,20 +111,14 @@ namespace ControllerSupport
 		// its own constructor-injected copy.
 		public static ISpecService SpecService;
 
-		// The straight-down ray CameraServicePlacementPatch already builds from GridCursor.x/y - exposed
-		// so a Harmony patch that needs the *current* terrain height under the cursor (not GridCursor.z,
-		// which is only ever set once at Activate() and never re-derived as x/y change - irrelevant to
-		// every existing consumer since CameraServicePlacementPatch's own ray construction never reads it
-		// either) can query TerrainPicker.PickTerrainCoordinates itself instead of trusting a stale value.
-		public static TerrainPicker TerrainPicker;
-
 		public static void Clear()
 		{
 			Active = false;
 			ToolEngaged = false;
-			CursorRayOriginHeight = GamepadCursorHeight.RayHeight;
+			CursorRayOriginHeight = GamepadCursorLevels.RayHeight;
 			SculptingActive = false;
 			SculptAdd = true;
+			ExactTerrainPick = false;
 			MainMouseButtonDown = false;
 			MainMouseButtonHeld = false;
 			MainMouseButtonUp = false;

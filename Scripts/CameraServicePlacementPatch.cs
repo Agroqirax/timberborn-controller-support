@@ -16,16 +16,18 @@ namespace ControllerSupport
 	[HarmonyPatch(typeof(Timberborn.CameraSystem.CameraService))]
 	internal static class CameraServicePlacementPatch
 	{
-		// GamepadPlacementState.CursorRayOriginHeight defaults to GamepadCursorHeight.RayHeight - well
-		// above any real map height (grid.z is world height in voxel units, and Timberborn maps never
-		// come close to this), so the ray always travels down from clear air onto whatever is actually
-		// there - same as a real mouse ray cast down from the camera. Starting the ray right at the
-		// target cell instead, as this used to unconditionally, put its origin inside a tree or bush's
-		// own collider whenever one occupied that cell: a raycast that starts inside a collider does
-		// not register a hit for it, so the picker found nothing at all rather than an occupied cell,
-		// which is why obstructed cells showed no preview instead of the usual red one. Only a cursor
-		// genuinely moved away from its column's natural top (dpad up/down) switches this to originate
-		// near the chosen cell instead - see each controller's own height handling.
+		// GamepadPlacementState.CursorRayOriginHeight is GamepadCursorLevels.RayHeight - well above any
+		// real map height (grid.z is world height in voxel units, and Timberborn maps never come close
+		// to this) - whenever the cursor is on its column's topmost level, so the common case travels
+		// down from clear air onto whatever is actually there, same as a real mouse ray from the camera.
+		// A cursor on a lower level publishes `cursor.z + 1` instead, which is an exact integer voxel
+		// boundary: GridTraversal's first step from there lands on the cursor's own (empty) cell and the
+		// second on the thing resting under it, so the pick is precise rather than "whatever is nearest
+		// below". That origin is deliberately never inside the target - a level is by construction an
+		// EMPTY cell (see GamepadCursorLevels), which is what makes it safe for the physics-raycast
+		// pickers too, since a raycast starting inside a collider registers no hit for it. An earlier
+		// version put the origin at the *solid* voxel instead and hit exactly that: a cell occupied by a
+		// tree or bush showed no preview at all rather than the usual red one.
 		private static readonly Vector3 Down = new Vector3(0f, 0f, -1f);
 
 		private static Ray GridSpaceRay()

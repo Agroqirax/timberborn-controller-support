@@ -23,6 +23,10 @@ namespace ControllerSupport
 		private const float MouseMovementThreshold = 2f;
 		private const string MouseLeftKey = "MouseLeft";
 
+		// Matches the Ids of this mod's own KeyBinding.CursorHeightUp/Down.blueprint.json.
+		private const string CursorHeightUpKey = "CursorHeightUp";
+		private const string CursorHeightDownKey = "CursorHeightDown";
+
 		// Comfortably above stick deadzone noise - GamepadAxis.Read already returns 0 below the
 		// underlying control's own deadzone, so this just guards against HID jitter on top of that.
 		private const float GamepadAxisThreshold = 0.2f;
@@ -54,9 +58,15 @@ namespace ControllerSupport
 			}
 		}
 
+		// CursorHeightUp/Down count too. They are the only gamepad control this mod binds that isn't
+		// reachable through Move/UIConfirm/UICancel, and leaving them out meant a player who had last
+		// touched the mouse could press dpad up/down forever with nothing happening: the latch stayed
+		// mouse-controlled, so every cursor controller's own handoff kept standing down, and the branch
+		// that reads the height keys at all is inside the branch a gamepad press is supposed to enter.
 		private bool GamepadActive()
 		{
 			return _inputService.UIConfirm || _inputService.UICancel
+				|| _inputService.IsKeyHeld(CursorHeightUpKey) || _inputService.IsKeyHeld(CursorHeightDownKey)
 				|| GamepadAxis.Read(_keyBindingRegistry, GamepadAxis.Move).sqrMagnitude
 					>= GamepadAxisThreshold * GamepadAxisThreshold;
 		}

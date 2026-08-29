@@ -6,11 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Early 3D gamepad cursor movement: dpad up/down nudges the building-placement/area-selection/select-tool cursor's height. Planting, un-planting and tree-cutting mark/unmark are forced onto real terrain levels only; every other tool (now including the MapEditor terrain sculpting brush) is free to move into mid-air for now
+- Gamepad select mode now shows unfinished buildings as their greyed-out finished model
+- 3D gamepad cursor movement: dpad up/down moves the building-placement/area-selection/select-tool cursor's height
 - The Increase/Decrease Floodgate Height shoulders now also drive the mechanical/compact/deep pump's flow rate, water depth/flow/contamination sensor thresholds, the power meter's and resource counter's percent thresholds (when shown as a slider), and the weather station's early activation hours - whichever single slider the selected entity's panel is currently showing
 
 ### Fixed
 
+- The gamepad cursor's selection is no longer one voxel below the highlighted face on the tools that pick objects
+- The gamepad select tool no longer selects the same object from multiple different cursor heights
+- The zipline connection tool now publishes its own cursor ray origin instead of inheriting whatever the last tool left behind on the shared placement state
 - The automation lever's Switch On/Off button is now selectable and activatable with the gamepad (it drives the lever from raw pointer press/release instead of a click)
 - Numeric text fields (IntegerField/FloatField - the power meter's and resource counter's threshold fields, among others) are now selectable with the gamepad; only string TextFields were reachable before
 - The Increase/Decrease Floodgate Height keybind labels are renamed to Increase/Decrease Entity Slider in the keybind settings menu, since the shoulders now drive far more than floodgates - localized into all 14 shipped languages

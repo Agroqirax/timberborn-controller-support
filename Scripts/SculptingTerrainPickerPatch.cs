@@ -38,17 +38,15 @@ namespace ControllerSupport
 				return true;
 			}
 
-			// CursorRayOriginHeight sits at GamepadCursorHeight.RayHeight (1000f) whenever the cursor
-			// is at its natural top - an uninformative sentinel, not a real target height, so the real
-			// terrain-walk still has to run and find the actual ground (same as every other tool at
-			// zero height offset). Only once the ray's origin is well below that sentinel does it carry
-			// the genuine chosen height (cursor.z + 1 - see CameraServicePlacementPatch), which is what
-			// this recovers below instead of just running the real algorithm.
-			if (ray.origin.z >= GamepadCursorHeight.RayHeight / 2f)
-			{
-				return true;
-			}
-
+			// No RayHeight-sentinel escape hatch any more. This used to fall through to the real
+			// terrain walk whenever the ray originated at RayHeight - i.e. whenever the cursor sat at
+			// its column's surface - on the grounds that the sentinel carried no useful height. The
+			// cost was that the tool's behaviour changed shape depending on whether the player had
+			// pressed a height key yet: at the surface the picker re-derived its own answer (which
+			// could disagree with the drawn cursor over a stackable block), and only below it did the
+			// gamepad's own cell win. GamepadAreaSelectionController now publishes an exact
+			// cursor.z + 1 origin on every sculpting frame instead, so this is unconditional and one
+			// press always moves the target exactly one voxel.
 			var x = Mathf.FloorToInt(ray.origin.x);
 			var y = Mathf.FloorToInt(ray.origin.y);
 

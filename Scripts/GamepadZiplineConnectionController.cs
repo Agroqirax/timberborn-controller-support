@@ -253,6 +253,16 @@ namespace ControllerSupport
 			GamepadPlacementState.Active = true;
 			GamepadPlacementState.GridCursor = _selected.CableAnchorPointInt;
 
+			// Every writer of GridCursor has to publish this too, every active frame, or a value another
+			// controller left behind decides where this one's ray starts - see GamepadPlacementState's
+			// own comment on the field and this mod's notes on the shared-static clear/write hazard.
+			// This controller was the one that didn't: with 3D cursor movement, a demolish or priority
+			// cursor dialled down below its column's top leaves cursor.z + 1 behind, and the very next
+			// frame the zipline tool's ray would have originated from inside the tower it was trying to
+			// hit. RayHeight is the right answer here regardless of levels - the anchor cell is the top
+			// of the tower, so a ray from clear air straight down its column always finds it.
+			GamepadPlacementState.CursorRayOriginHeight = GamepadCursorLevels.RayHeight;
+
 			// Midpoint of the two towers being connected - the same "here's what you're looking at"
 			// spot the preview cable itself spans, so the tooltip sits between them rather than at
 			// wherever the real mouse happens to be resting while the stick drives the tool.

@@ -17,6 +17,11 @@ namespace ControllerSupport
 		private const float RepeatInterval = 0.12f;
 		private const float DiagonalRatio = 0.55f;
 
+		// Matches the Ids of this mod's own KeyBinding.CursorHeightUp/Down.blueprint.json - the d-pad's
+		// vertical half, borrowed here for menu navigation. See ReadDirection.
+		private const string CursorHeightUpKey = "CursorHeightUp";
+		private const string CursorHeightDownKey = "CursorHeightDown";
+
 		private Vector2Int _heldDirection;
 		private float _nextRepeatTime;
 
@@ -61,11 +66,23 @@ namespace ControllerSupport
 			// initial repeat delay over and over.
 			var threshold = _heldDirection == Vector2Int.zero ? PressZone : ReleaseZone;
 
-			// GamepadMoveUp/Down/Left/Right each carry both the left stick and the d-pad as
-			// Primary/Secondary, so this one read already reflects whichever source (or both) the
-			// player is actually pushing - same combined behaviour as the old direct stick-then-dpad
-			// checks, just sourced through the rebindable keybind instead of Gamepad.current directly.
+			// GamepadMoveUp/Down/Left/Right each carry both the left stick and the d-pad's horizontal
+			// half as Primary/Secondary, so this one read already reflects whichever source (or both)
+			// the player is actually pushing.
 			var stick = GamepadAxis.Read(registry, GamepadAxis.Move);
+
+			// The d-pad's *vertical* half is not on GamepadMove: it belongs to CursorHeightUp/Down, the
+			// world cursor's height control, which cannot share an action with "move north" without one
+			// press doing both. Folding it back in here is what keeps the whole d-pad usable for menu
+			// navigation - this class only ever runs while no world cursor tool is engaged (see
+			// GamepadNavigationInputProcessor and GamepadPlacementState.ToolEngaged), so the two
+			// meanings never overlap in time and no dedicated fifth/sixth binding is needed.
+			var heightY = registry.GetRawValue(CursorHeightUpKey) - registry.GetRawValue(CursorHeightDownKey);
+			if (Mathf.Abs(heightY) > Mathf.Abs(stick.y))
+			{
+				stick.y = heightY;
+			}
+
 			return stick.magnitude >= threshold ? Quantize(stick) : Vector2Int.zero;
 		}
 

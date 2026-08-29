@@ -1,13 +1,15 @@
 using System;
+using System.Collections.Generic;
 using Timberborn.AreaSelectionSystem;
 using Timberborn.BlockSystem;
 using Timberborn.BlueprintSystem;
 using Timberborn.CameraSystem;
+using Timberborn.ConstructionMode;
 using Timberborn.Coordinates;
 using Timberborn.CursorToolSystem;
 using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
-using Timberborn.MapStateSystem;
+using Timberborn.Rendering;
 using Timberborn.SelectionSystem;
 using Timberborn.SingletonSystem;
 using Timberborn.TerrainQueryingSystem;
@@ -105,12 +107,21 @@ namespace ControllerSupport
 
 		private static readonly Vector3 Down = new Vector3(0f, 0f, -1f);
 
+		// How many times TryPickSelectable will look past something that isn't what the cursor is
+		// pointing at before giving up. Small on purpose: a cursor in open air rejects on the first hit
+		// and then finds terrain (or nothing) on the second, so the common case never gets near this.
+		private const int MaxPickAttempts = 4;
+
+		// Scratch for that retry's layer swaps - a field rather than a local so a pick that rejects
+		// nothing, which is nearly all of them, allocates nothing.
+		private readonly List<KeyValuePair<GameObject, int>> _hiddenLayers =
+			new List<KeyValuePair<GameObject, int>>();
+
 		private readonly InputService _inputService;
 		private readonly CameraService _cameraService;
 		private readonly ToolService _toolService;
 		private readonly TerrainPicker _terrainPicker;
-		private readonly ITerrainService _terrainService;
-		private readonly IBlockService _blockService;
+		private readonly GamepadCursorLevels _cursorLevels;
 		private readonly PanelTracker _panelTracker;
 		private readonly EventBus _eventBus;
 		private readonly EntitySelectionService _entitySelectionService;
@@ -119,7 +130,7 @@ namespace ControllerSupport
 		private readonly RectangleBoundsDrawerFactory _rectangleBoundsDrawerFactory;
 		private readonly WaterOpacityService _waterOpacityService;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
-		private readonly MapSize _mapSize;
+		private readonly ConstructionModeToggle _constructionMode;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
@@ -133,31 +144,31 @@ namespace ControllerSupport
 		private ITool _lastKnownActiveTool;
 		private Vector3Int _cursor;
 
-		// See GamepadBuildingPlacementController's own fields of the same names.
+		// See GamepadCursorHeight.ApplyFreeHeight - false means "follow the surface"; a CursorHeightUp/
+		// Down press locks it true and _lockedHeight becomes the absolute height from then on.
 		private bool _heightLocked;
 		private int _lockedHeight;
 
-		// The height this controller's own hand-built rays (TryPickSelectable, RefreshCursorHeight)
-		// originate from - GamepadCursorHeight.RayHeight by default, cursor.z + 1 once _heightLocked.
-		// See GamepadPlacementState.CursorRayOriginHeight for why this mirrors that field.
-		private float _rayOriginHeight = GamepadCursorHeight.RayHeight;
+		// The height this controller's own hand-built ray (TryPickSelectable) originates from -
+		// GamepadCursorLevels.RayHeight while the cursor is on its column's topmost surface, cursor.z + 1
+		// otherwise. See GamepadPlacementState.CursorRayOriginHeight for why this mirrors that field.
+		private float _rayOriginHeight = GamepadCursorLevels.RayHeight;
 
 		private float _nextFailureLogTime;
 
 		public GamepadSelectionController(InputService inputService, CameraService cameraService,
-			ToolService toolService, TerrainPicker terrainPicker, ITerrainService terrainService,
-			IBlockService blockService, PanelTracker panelTracker, EventBus eventBus,
+			ToolService toolService, TerrainPicker terrainPicker, GamepadCursorLevels cursorLevels,
+			PanelTracker panelTracker, EventBus eventBus,
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
 			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
 			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry,
-			RecentInputDeviceTracker recentInputDeviceTracker, MapSize mapSize)
+			RecentInputDeviceTracker recentInputDeviceTracker, ConstructionModeService constructionModeService)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
 			_terrainPicker = terrainPicker;
-			_terrainService = terrainService;
-			_blockService = blockService;
+			_cursorLevels = cursorLevels;
 			_panelTracker = panelTracker;
 			_eventBus = eventBus;
 			_entitySelectionService = entitySelectionService;
@@ -166,7 +177,7 @@ namespace ControllerSupport
 			_rectangleBoundsDrawerFactory = rectangleBoundsDrawerFactory;
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
-			_mapSize = mapSize;
+			_constructionMode = new ConstructionModeToggle(constructionModeService);
 			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
 
@@ -185,6 +196,7 @@ namespace ControllerSupport
 		{
 			_eventBus.Unregister(this);
 			_rollingHighlighter.UnhighlightAllPrimary();
+			_constructionMode.Disable();
 			_waterOpacityToggle.ShowWater();
 			_inputService.ShowCursor();
 			GamepadPlacementState.Clear();
@@ -284,26 +296,22 @@ namespace ControllerSupport
 			}
 
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
+			var heightStep = _heightStepReader.ReadStep(_inputService);
 
 			// Cursor-visibility side effect only - see the class comment above for why the returned
 			// control decision is ignored here. UIConfirm doubles as the "gamepad action" signal since
-			// this controller has no separate placement-style Confirm key.
-			_handoff.Update(step, _inputService.UIConfirm);
+			// this controller has no separate placement-style Confirm key; a height press counts too,
+			// so dpad up/down alone is enough to hide the mouse cursor again.
+			_handoff.Update(step, _inputService.UIConfirm || heightStep != 0);
 
 			if (step != Vector2Int.zero)
 			{
 				var moved = new Vector2Int(_cursor.x + step.x, _cursor.y + step.y);
-				var clamped = GamepadCursorHeight.ClampToMap(moved, _mapSize.TerrainSize2D);
+				var clamped = _cursorLevels.ClampToMap(moved);
 				_cursor.x = clamped.x;
 				_cursor.y = clamped.y;
 			}
 
-			// Free 3D movement, same as GamepadBuildingPlacementController/GamepadAreaSelectionController
-			// - the stored z only ever comes from Engage()'s seed unless refreshed here, and moving purely
-			// in x/y leaves it stale the instant the player crosses onto ground at a different height,
-			// which would draw the box below at the wrong level instead of tracking the terrain (or
-			// whatever's dialled in with the height offset) the way a real mouse cursor would.
-			var heightStep = _heightStepReader.ReadStep(_inputService);
 			RefreshCursorHeight(heightStep);
 
 			GamepadPlacementState.ToolEngaged = true;
@@ -365,22 +373,42 @@ namespace ControllerSupport
 					_entitySelectionService.Unselect();
 				}
 			}
+
+			// Re-asserted here, after the select/unselect above rather than only in Engage():
+			// ConstructionModeService leaves construction mode on every SelectableObjectUnselectedEvent,
+			// and confirming on empty space is exactly that - so without this, one confirm on nothing
+			// would drop every unfinished building back to scaffolding for the rest of the session.
+			// Doing it in the same frame as the unselect also means the models never visibly flicker.
+			_constructionMode.Enable();
 		}
 
-		// Free 3D movement - see GamepadCursorHeight.ApplyFreeHeight. `naturalTop` is a plain integer
-		// voxel scan (terrain OR block object, whichever is higher), not a raycast - see
-		// GamepadCursorHeight.NaturalTop for why that matters. `_rayOriginHeight` is what
-		// TryPickSelectable's own hand-built ray (and the box drawn below when nothing is hit) uses -
-		// GamepadCursorHeight.RayHeight while the offset is zero (identical to this controller's old,
-		// always-track-the-top behaviour), cursor.z + 1 once the player has genuinely moved away from
-		// that natural top.
+		// Free movement in z - see GamepadCursorHeight.ApplyFreeHeight. Unlocked (no height key pressed
+		// yet) the box tracks GamepadCursorLevels.HoverCell - the topmost occupied cell in the column,
+		// or the empty cell resting on the terrain when it holds nothing - which is the cell a mouse
+		// would be hovering. A height press locks it to an absolute z from then on.
+		//
+		// Called every frame, not only on a height press: moving purely in x/y has to re-derive z while
+		// unlocked or the box stays at the old height the instant the player crosses onto ground at a
+		// different level, which a real mouse cursor would never do.
+		//
+		// `_rayOriginHeight` is what TryPickSelectable's own hand-built ray (and the box drawn when it
+		// hits nothing) uses - RayHeight while unlocked, which is byte-for-byte this controller's pre-3D
+		// behaviour, and cursor.z + 1 once locked, which puts the ray's origin in the empty cell the
+		// cursor occupies and its first metre of travel straight onto whatever is resting under it.
 		private void RefreshCursorHeight(int heightStep)
 		{
-			var naturalTop = GamepadCursorHeight.NaturalTop(_terrainService, _blockService, _cursor.x, _cursor.y,
-				_mapSize.TotalSize.z);
-			_cursor.z = GamepadCursorHeight.ApplyFreeHeight(naturalTop, ref _heightLocked, ref _lockedHeight,
-				heightStep, _mapSize.TotalSize.z);
-			_rayOriginHeight = _heightLocked ? _cursor.z + 1f : GamepadCursorHeight.RayHeight;
+			var xy = new Vector2Int(_cursor.x, _cursor.y);
+			_cursor.z = GamepadCursorHeight.ApplyFreeHeight(_cursorLevels.HoverCell(xy), ref _heightLocked,
+				ref _lockedHeight, heightStep, _cursorLevels.CeilingExclusive);
+
+			// RayOriginFor(_cursor.z + 1), not RayOriginFor(_cursor.z): _cursor.z is the cell being acted
+			// on, so the ray has to start above that cell's ceiling to meet its contents at all. Starting
+			// it one lower put the origin inside the very thing the cursor was pointing at, which a
+			// Physics.Raycast cannot hit - so the pick fell through to whatever was under it and the
+			// selection landed one voxel below the box the player could see.
+			_rayOriginHeight = _heightLocked
+				? GamepadCursorLevels.RayOriginFor(_cursor.z + 1)
+				: GamepadCursorLevels.RayHeight;
 		}
 
 		// Same ray CameraServicePlacementPatch builds for the InGridSpace patch, only converted to
@@ -389,30 +417,83 @@ namespace ControllerSupport
 		//
 		// Physics.Raycast has no max distance here (SelectableObjectRaycaster doesn't take one), so a
 		// straight-down ray from _rayOriginHeight always hits the *nearest* thing below it, however far
-		// below that is - including something the player has long since risen well above. Left
-		// unchecked, raising the cursor above e.g. a stack of levees kept re-selecting the same top
-		// levee on every further press with no visible change, since there's nothing else up there to
-		// hit and a plain hit test can't tell "genuinely nothing here" from "something far below". Only
-		// accepting a hit whose own grid height lands within one cell of the cursor's own is what makes
-		// rising into genuine empty air actually deselect.
+		// below that is - and a plain hit test cannot tell "the thing this cursor is pointing at" from
+		// "something a long way down that nothing else was in the way of". Left unfiltered that is what
+		// made two and sometimes three consecutive cursor heights all select the same object: sitting on
+		// top of a levee selected it, and so did every height of empty air above it.
+		//
+		// The filter is a grid question, not a geometric one, which is what makes it exact.
+		// `_cursor.z` is the cell being acted on - the same cell the box is drawn around - so a hit
+		// counts when the object occupies that cell, and PositionedBlocks already knows precisely which
+		// cells an object occupies. No tolerance to tune, no dependence on how tall a model happens to be
+		// relative to its blocks (a path's collider is a fraction of its cell, a roof can stand proud of
+		// its own), and no way for a cursor a level too high to claim something.
+		//
+		// Exactly one cell is checked, never a neighbouring one. Together with
+		// GamepadCursorLevels.RayOriginInset - which starts the ray just inside the cell above, so it is
+		// already past the top face of anything occupying *that* one and misses it - that is what makes
+		// lowering the cursor into a stack walk down it one object per press instead of re-selecting the
+		// top one.
+		//
+		// A rejected hit is retried rather than given up on, by hiding whatever was in the way and casting
+		// again - the same temporary-layer-swap trick BlockObjectRaycaster.TryHitBlockObject already uses
+		// for its own "that wasn't the type I wanted" case. Without it, one building's roof overhanging
+		// the neighbouring tile would make whatever is genuinely under the cursor unselectable, since the
+		// single hit the raycaster returns is always the closest one and there is no second chance.
+		// Capped, and every layer is put back in a finally - leaving one on Ignore Raycast would quietly
+		// make that object unclickable for the rest of the session, mouse included.
 		private bool TryPickSelectable(out SelectableObject selectable)
 		{
 			var gridRay = new Ray(new Vector3(_cursor.x + 0.5f, _cursor.y + 0.5f, _rayOriginHeight), Down);
 			var worldRay = CoordinateSystem.GridToWorld(gridRay);
-			if (!_selectableObjectRaycaster.TryHitSelectableObjectIncludeTerrainStump(worldRay, out selectable,
-				out var hit))
+			try
 			{
-				return false;
+				for (var attempt = 0; attempt < MaxPickAttempts; attempt++)
+				{
+					if (!_selectableObjectRaycaster.TryHitSelectableObjectIncludeTerrainStump(worldRay,
+						out selectable, out var hit))
+					{
+						break;
+					}
+
+					if (HitBelongsToCursorCell(selectable, hit))
+					{
+						return true;
+					}
+
+					var blocker = hit.collider.gameObject;
+					_hiddenLayers.Add(new KeyValuePair<GameObject, int>(blocker, blocker.layer));
+					blocker.layer = Layers.IgnoreRaycastMask;
+				}
+			}
+			finally
+			{
+				foreach (var hidden in _hiddenLayers)
+				{
+					hidden.Key.layer = hidden.Value;
+				}
+
+				_hiddenLayers.Clear();
 			}
 
+			selectable = null;
+			return false;
+		}
+
+		private bool HitBelongsToCursorCell(SelectableObject selectable, RaycastHit hit)
+		{
+			var blockObject = selectable.GetComponent<BlockObject>();
+			if (blockObject)
+			{
+				return blockObject.PositionedBlocks.HasBlockAt(_cursor);
+			}
+
+			// Beavers, bots and anything else that isn't placed on the grid have no blocks to ask about,
+			// so those get a height window instead, one cell tall. A downward ray meets such a thing at
+			// its top, which is at or above its feet and below the ceiling of the cell it is standing in;
+			// the small slack on the lower bound is only there because that height comes back as a float.
 			var hitGridZ = CoordinateSystem.WorldToGrid(hit.point).z;
-			if (hitGridZ < _cursor.z - 1f)
-			{
-				selectable = null;
-				return false;
-			}
-
-			return true;
+			return hitGridZ >= _cursor.z - 0.01f && hitGridZ <= _cursor.z + 1f;
 		}
 
 		// A toggle: pressed while already engaged, backs straight out - a second, independent way to
@@ -446,7 +527,7 @@ namespace ControllerSupport
 			_stepReader.Reset();
 			_heightStepReader.Reset();
 			_heightLocked = false;
-			_rayOriginHeight = GamepadCursorHeight.RayHeight;
+			_rayOriginHeight = GamepadCursorLevels.RayHeight;
 			_handoff.Reset();
 
 			// Seeds through the camera via PickTerrainCoordinates rather than a fixed-height plane -
@@ -461,6 +542,12 @@ namespace ControllerSupport
 			// CursorTool never triggers that (it *is* the default tool, so IsDefaultToolActive never
 			// flips while this submode is armed), so it has to be done by hand here instead.
 			_waterOpacityToggle.HideWater();
+
+			// Same reasoning, the other half of what a real tool gets: unfinished buildings show their
+			// greyed-out finished model instead of scaffolding, so what is actually being pointed at is
+			// legible. See ConstructionModeToggle. (It hides water through a toggle of its own too -
+			// harmless, since WaterOpacityService ORs every toggle together rather than counting them.)
+			_constructionMode.Enable();
 		}
 
 		private void Disengage()
@@ -472,6 +559,7 @@ namespace ControllerSupport
 
 			_engaged = false;
 			_rollingHighlighter.UnhighlightAllPrimary();
+			_constructionMode.Disable();
 			_waterOpacityToggle.ShowWater();
 			_inputService.ShowCursor();
 			GamepadPlacementState.Clear();

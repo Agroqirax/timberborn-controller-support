@@ -131,6 +131,122 @@ Game scene does not:
 - The HUD also changes without any panel event (an entity panel appears when something is selected),
   so anything cached per panel-event will go stale there. Re-deriving on demand is the safer default.
 
+## World picking: how a ray becomes a cell, and every +/-1 in it
+
+This is the single most useful thing to know before touching anything that points at the world.
+
+- **The terrain has no colliders at all.** It is a 3D boolean voxel array (`TerrainMap._terrainVoxels`),
+  and picking it is a pure-maths DDA walk, `GridTraversing.GridTraversal.TraverseRay(ray)`. Physics
+  colliders exist only on *block objects* (buildings, trees, characters), added by
+  `SelectionSystem.BoxColliderAdder`. `SelectableObjectRaycaster` therefore does both: a
+  `Physics.Raycast` for objects, and a separate `GridTraversal` walk purely to work out how far away
+  the terrain is, so it can reject an object hit that is behind it.
+- **Grid space swaps world Y and Z** (`Coordinates.CoordinateSystem`) and is its own inverse, so
+  distances are preserved and the two can be compared directly. Grid Z is height.
+- `TraversedCoordinates.Coordinates` is **the solid voxel that was hit**; `CoordinatesWithFaceOffset`
+  is `Coordinates + Face`, the **empty voxel in front of the hit face**. `Face` is the inward offset
+  back toward where the ray came from, so `Face.z == 1` means "entered through the top face". Almost
+  every consumer wants the second one - `CursorCoordinatesPicker`, `AreaSelector.GetSelectionStart`
+  and the MapEditor brushes all spell out `Coordinates + Face`.
+- **`TraverseRay` steps before it yields, so the voxel containing the origin is skipped.** For a
+  straight-down ray whose origin z is an exact integer `n`, the first yielded voxel is therefore
+  `n - 1`. That is what makes "origin at `cell + 1`" the precise way to say "resolve to this cell".
+- `TerrainPicker.PickTerrainCoordinates` stops at the first solid voxel with `z < MaxVisibleLevel`;
+  the `...WithStump` variant uses `<=` (the level slider renders one extra stump layer, which sculpting
+  and selection may target but building may not). **The level-visibility slider is the closest thing
+  the game has to a "build level" - it is a ceiling on picking, not a placement origin.**
+- `TerrainPicker.FindCoordinatesOnLevelInMap(ray, level)` is the *other* primitive: intersect the ray
+  with a horizontal plane. **Every drag in the game uses it for the far end**, at the level the drag
+  started on, and then flattens the result again (`AreaIterator.GetRectangle` hard-writes `end.z =
+  start.z`). So a drag is always one voxel tall, and dragging across a hill selects nothing on the
+  columns whose surface is at a different height (`TerrainAreaService.InMapLeveledCoordinates` drops
+  them). Note `UnityEngine.Plane.Raycast` refuses a ray that starts *below* the plane - fine for a
+  camera ray, a real hazard for a synthesised straight-down one.
+- Building placement (`BlockObjectPreviewPicker.CenteredPreviewCoordinates`) walks the ray and stops
+  at the first voxel entered through its top face that `IsTerrainOrStackable`. The float intersection
+  is then nudged (`FaceAdjustedIntersection`: **z always +0.001, x/y -0.001 along the face**) before
+  flooring - z resolves upward, x/y outward. So the ghost lands one above the solid voxel, minus
+  `BlockObjectSpec.BaseZ`. A fully-underground object gets `.Below()` and `VerticalOffset = -1` instead.
+- `StackableBlockService.GetGroundOrStackableBlocks(columns)` is the game's own enumeration of "every
+  cell a thing can be placed on in this column" - exactly the set the placement traversal stops at,
+  level-visibility filter included. Use it rather than re-deriving one.
+- Sculpting add vs remove is not a bug workaround, it is the two halves of the same struct: add targets
+  `CoordinatesWithFaceOffset` (the empty cell to fill), remove targets `Coordinates` (the solid cell to
+  clear). Same for the height brushes: `SetTerrain` at the surface cell, `UnsetTerrain` at
+  `.Below()` it. Any code that snaps a cursor to a voxel has to know which mode is live.
+- `SelectionStart(BlockObjectHit)` anchors on `HitProjectedOnGround` - the object's **base** z, not the
+  block that was hit - and `HitLevel` is the raw float world height of the collider hit. Area picking
+  then only accepts objects whose `CoordinatesAtBaseZ.z` equals that start level.
+
+### What this means for a gamepad cursor
+
+No tool takes a coordinate; they all take a `Ray` and resolve it by walking **down**. A synthesised
+straight-down ray from an arbitrary height therefore collapses onto whatever surface is below it, so
+moving a cursor freely in z does nothing going up and produces long runs of duplicate answers going
+down. The cursor has to step through the *set of heights the tool's own picker can resolve to* in that
+column instead, with the ray originating one voxel above the chosen cell.
+
+**Which cell does a cursor name?** `RectangleBoundsDrawer` renders a box's floor at world `y == cell.z`,
+so a box drawn at cell C occupies C, and the base game acts on what is *in* C - `SelectionStart`'s
+`Coordinates` for a block-object hit is the object's own base cell, not the empty cell above it. But the
+two pipelines need opposite ray origins to land there, because they target opposite things: a
+grid-traversal pick (placement, terrain) targets the empty cell resting on support, so its ray starts
+inside cell C and stops at the support in C-1; a physics pick (select, priority, demolish) targets the
+cell's own contents, so its ray must start above C's ceiling or it begins inside the very object it is
+meant to hit and falls through to whatever is below. One voxel apart, and getting it wrong reads as the
+selection sitting a level under the highlight.
+
+Two details of that ray matter more than they look. Its origin must sit **just inside** the cursor's
+own cell (`cursor.z + 1 - 0.001`), not on its ceiling: `Physics.Raycast` registers a hit at distance
+zero for a ray starting exactly on a collider's face, so a flat `cursor.z + 1` lets a cursor lowered
+into an object's own cell still hit that object. And a physics hit should be accepted on **grid**
+grounds - does the object's `PositionedBlocks` cover the cell below the cursor - rather than by
+comparing hit heights: a path's collider is a fraction of its cell and a roof can stand proud of its
+own, so any height tolerance wide enough for one is wide enough to let a cursor a level too high claim
+the other. When a hit is rejected, `BlockObjectRaycaster.TryHitBlockObject`'s temporary-layer-swap
+retry is the pattern to copy.
+
+The mod applies that only where the tool genuinely cannot act on empty space - planting, tree cutting
+and the MapEditor terrain brushes - and lets everything else move freely, publishing `cursor.z + 1` as
+the ray origin so the pick is at least exact. For the sized brushes (`IBrushWithSize` /
+`IBrushWithShape` + the public `BrushShapeIterator`) the level set is the union over the whole brush
+footprint, and `TerrainPicker.PickTerrainCoordinates` has to be short-circuited to the cursor's own
+cell as well - the brush derives its origin from the *centre* column, which would otherwise snap a
+footprint-only level straight back down to the ground. See `Scripts/GamepadCursorLevels.cs`.
+
+## What entering a tool actually turns on
+
+Gamepad select mode is a submode of the default `CursorTool`, not a tool of its own, so it gets none
+of this for free and has to opt in by hand. The complete set of things keyed on `ToolEnteredEvent` /
+`ToolGroupEnteredEvent` (grep those two plus `IsDefaultToolActive` - there is nothing else):
+
+| What | Where | Fires for |
+|---|---|---|
+| **Water goes transparent** | `ToolSystemUI.ToolWaterToggler` | any tool group, and any non-default tool that isn't `IWaterIgnoringTool` |
+| **Construction mode** - unfinished buildings show a greyed-out *finished* model instead of scaffolding | `ConstructionMode.ConstructionModeService` | a tool group whose blueprint carries `ConstructionModeToolGroupSpec` (only **Demolishing** and **BuilderPriority**), any `IConstructionModeEnabler` tool (every `BlockObjectTool`, plus zipline / duplicate-settings / transmitter-picker), or selecting an unfinished building |
+| Buildings that accept builder priority get highlighted | `BuilderPrioritySystemUI.BuilderPrioritizableHighlighter` | BuilderPriority group only |
+| Tree-cutting area tiles get drawn | `ForestryUI.TreeCuttingAreaVisualizer` | Forestry/TreeCutting groups only |
+| Planting overlays | `PlantingUI.PlantingModeService` | planting groups / `PlantingTool` only |
+| Map-editor construction guidelines | `MapEditorConstructionGuidelinesUI.MapEditorGuidelinesShower` | map editor brushes only |
+| The tool description panel | `ToolSystemUI.DescriptionPanelController` | any tool with an `IToolDescriptor` |
+| Bottom-bar button selected state | `ToolButtonSystem.ToolButton` / `ToolGroupButton` / `ToolButtonSelector` | tools with a button |
+| Per-tool option panels (placement rotate/flip, brush size/shape/height/direction, randomizing, …) | `BlockObjectToolsUI`, `BrushesUI`, `MapEditorNaturalResourcesUI`, … | their own tool only |
+| Range/explosion previews torn down | `RangedEffectBuildingUI.BuildingWithRangePreviewUpdater`, `Explosions.ExplosionVisualizerService` | on **exit** only |
+| Active tool dropped when a non-dialog panel opens | `ToolSystemUI.PanelToolSwitcher` | any tool |
+
+Two of those are worth a mod's attention; the rest are either group-specific or need a real tool with
+a button and a description.
+
+- **`WaterOpacityService` ORs its toggles** (`GetWaterOpacityToggle()` hands out an independent
+  `WaterOpacityToggle`, and `FastAny(toggle => toggle.Hidden)` decides), so several holders can hide
+  the water at once and it stays hidden until the last one lets go. No ref-counting to get wrong.
+- **`ConstructionModeService.EnterConstructionMode` / `ExitConstructionMode` are private**;
+  `InConstructionMode` is public. Reflect on the two methods rather than posting a synthetic
+  `ToolEnteredEvent`, which would also reach the water toggler, the description panel, `PanelToolSwitcher`
+  and the bottom bar's button state. Note `Exit` is conditional - it refuses while an unfinished building
+  is selected or a construction tool group is open - and the service drops construction mode on **any**
+  `SelectableObjectUnselectedEvent`, so anything holding it on has to re-assert after an unselect.
+
 ## Camera
 
 `CameraService` is public and bound in `Game`/`MapEditor` by `CameraSystemConfigurator`.

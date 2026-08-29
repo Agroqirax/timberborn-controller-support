@@ -51,11 +51,9 @@ namespace ControllerSupport
 		private readonly CameraService _cameraService;
 		private readonly ToolService _toolService;
 		private readonly TerrainPicker _terrainPicker;
-		private readonly ITerrainService _terrainService;
-		private readonly IBlockService _blockService;
+		private readonly GamepadCursorLevels _cursorLevels;
 		private readonly PanelTracker _panelTracker;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
-		private readonly MapSize _mapSize;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
@@ -65,28 +63,30 @@ namespace ControllerSupport
 		private bool _active;
 		private Vector3Int _cursor;
 
-		// See GamepadCursorHeight.ApplyFreeHeight - false means "follow the terrain, exactly like
-		// before this feature existed"; a CursorHeightUp/Down press locks it true and _lockedHeight
+		// See GamepadCursorHeight.ApplyFreeHeight - false means "follow the surface, exactly like before
+		// 3D cursor movement existed"; a CursorHeightUp/Down press locks it true and _lockedHeight
 		// becomes the absolute height from then on, independent of whatever column the cursor is over.
 		private bool _heightLocked;
 		private int _lockedHeight;
 
+		// Last published GamepadPlacementState.CursorRayOriginHeight, kept so a drag can go on
+		// republishing the value from its own press frame - see the drag branch in Update.
+		private float _rayOriginHeight = GamepadCursorLevels.RayHeight;
+
 		private float _nextFailureLogTime;
 
 		public GamepadBuildingPlacementController(InputService inputService, CameraService cameraService,
-			ToolService toolService, TerrainPicker terrainPicker, ITerrainService terrainService,
-			IBlockService blockService, PanelTracker panelTracker, KeyBindingRegistry keyBindingRegistry,
-			RecentInputDeviceTracker recentInputDeviceTracker, MapSize mapSize)
+			ToolService toolService, TerrainPicker terrainPicker, GamepadCursorLevels cursorLevels,
+			PanelTracker panelTracker, KeyBindingRegistry keyBindingRegistry,
+			RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
 			_toolService = toolService;
 			_terrainPicker = terrainPicker;
-			_terrainService = terrainService;
-			_blockService = blockService;
+			_cursorLevels = cursorLevels;
 			_panelTracker = panelTracker;
 			_keyBindingRegistry = keyBindingRegistry;
-			_mapSize = mapSize;
 			_confirmGate = new ConfirmReleaseGate(inputService);
 			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
@@ -156,32 +156,55 @@ namespace ControllerSupport
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 			var confirmDown = _inputService.IsKeyDown(ConfirmKey);
 
+			// Read before the handoff, and fed into it - see GamepadAreaSelectionController.Update for
+			// why a height press has to be able to take control back from the mouse on its own.
+			var heightStep = _heightStepReader.ReadStep(_inputService);
+
 			// The tool is engaged this frame regardless of which device ends up driving the cursor
 			// below - GamepadNavigationInputProcessor reads this one, not Active, so it keeps
 			// standing down for the whole time the tool is up rather than just the frames the stick
 			// happens to be the one moving it. See GamepadPlacementState.ToolEngaged.
 			GamepadPlacementState.ToolEngaged = true;
 
-			if (_handoff.Update(step, confirmDown))
+			if (_handoff.Update(step, confirmDown || heightStep != 0))
 			{
 				if (step != Vector2Int.zero)
 				{
-					var moved = new Vector2Int(_cursor.x + step.x, _cursor.y + step.y);
-					var clamped = GamepadCursorHeight.ClampToMap(moved, _mapSize.TerrainSize2D);
+					var clamped = _cursorLevels.ClampToMap(new Vector2Int(_cursor.x + step.x, _cursor.y + step.y));
 					_cursor.x = clamped.x;
 					_cursor.y = clamped.y;
 				}
 
-				// Free 3D movement for now - no notion of "terrain" here, so the ghost can be nudged
-				// into mid-air. Rules for when/whether that should be allowed come later; this is the
-				// baseline the user asked to try first.
-				var naturalTop = GamepadCursorHeight.NaturalTop(_terrainService, _blockService, _cursor.x, _cursor.y,
-					_mapSize.TotalSize.z);
-				var heightStep = _heightStepReader.ReadStep(_inputService);
-				_cursor.z = GamepadCursorHeight.ApplyFreeHeight(naturalTop, ref _heightLocked, ref _lockedHeight,
-					heightStep, _mapSize.TotalSize.z);
-				GamepadPlacementState.CursorRayOriginHeight =
-					_heightLocked ? _cursor.z + 1f : GamepadCursorHeight.RayHeight;
+				// Evaluated here rather than just before the button state is published, because the drag
+				// check below needs it: a Confirm still held over from the press that opened this tool
+				// isn't a drag, it's a press this controller is deliberately swallowing.
+				var suppressConfirm = _confirmGate.ShouldSuppress();
+
+				if (!suppressConfirm && !confirmDown && _inputService.IsKeyHeld(ConfirmKey))
+				{
+					// Mid-drag (a line of paths, a rectangle of platforms). AreaPicker.GetEndCoords
+					// resolves the far end by intersecting the end ray with a horizontal plane at the
+					// start placement's own ReferenceTerrainLevel, and Plane.Raycast returns false for a
+					// ray that starts *below* the plane it is asked about - so a ghost that dropped to a
+					// lower level partway through a drag made the end resolve to nothing and the line
+					// silently collapsed back to its single starting tile. The drag is flat either way
+					// (AreaIterator pins every coordinate to start.z), so holding both the level and the
+					// published ray origin still for the duration costs nothing.
+					GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight;
+				}
+				else
+				{
+					// Free movement in z. The ghost is not pinned to the set of heights a building could
+					// sit at: the player says where the cursor is and the placement picker decides what
+					// that resolves to, exactly as it does for a mouse. Unlocked (no height key pressed
+					// yet) it just tracks the column's topmost surface, which is what a mouse would be
+					// pointing at, and keeps the obstruction-proof RayHeight ray origin with it.
+					var xy = new Vector2Int(_cursor.x, _cursor.y);
+					_cursor.z = GamepadCursorHeight.ApplyFreeHeight(_cursorLevels.SurfaceTop(xy), ref _heightLocked,
+						ref _lockedHeight, heightStep, _cursorLevels.CeilingExclusive);
+					GamepadPlacementState.CursorRayOriginHeight = _rayOriginHeight =
+						_heightLocked ? GamepadCursorLevels.RayOriginFor(_cursor.z) : GamepadCursorLevels.RayHeight;
+				}
 
 				GamepadPlacementState.Active = true;
 				GamepadPlacementState.GridCursor = _cursor;
@@ -192,7 +215,7 @@ namespace ControllerSupport
 				// release tail of the same press that confirmed this building's bottom-bar button was
 				// enough to auto-place at the freshly center-seeded cursor with no real press ever
 				// happening.
-				if (_confirmGate.ShouldSuppress())
+				if (suppressConfirm)
 				{
 					GamepadPlacementState.MainMouseButtonDown = false;
 					GamepadPlacementState.MainMouseButtonHeld = false;
@@ -222,7 +245,7 @@ namespace ControllerSupport
 			var mousePicked = _terrainPicker.PickTerrainCoordinates(mouseRay);
 			if (mousePicked.HasValue)
 			{
-				_cursor = mousePicked.Value.Coordinates;
+				_cursor = mousePicked.Value.CoordinatesWithFaceOffset;
 				_heightLocked = false;
 			}
 		}
@@ -259,6 +282,7 @@ namespace ControllerSupport
 			_stepReader.Reset();
 			_heightStepReader.Reset();
 			_heightLocked = false;
+			_rayOriginHeight = GamepadCursorLevels.RayHeight;
 			_confirmGate.Arm();
 			_handoff.Reset();
 
@@ -276,8 +300,10 @@ namespace ControllerSupport
 			// which is what put the seed near the bottom of the screen instead of dead centre.
 			var screenCentre = new Vector2(Screen.width / 2f, Screen.height / 2f);
 			var ray = _cameraService.ScreenPointToRayInGridSpace(screenCentre);
+			// CoordinatesWithFaceOffset, not Coordinates: _cursor.z means the empty cell a building
+			// would occupy, and the picker hands back the solid voxel supporting it.
 			var picked = _terrainPicker.PickTerrainCoordinates(ray);
-			_cursor = picked?.Coordinates ?? Vector3Int.zero;
+			_cursor = picked?.CoordinatesWithFaceOffset ?? Vector3Int.zero;
 		}
 
 		// Guarded, not unconditional: this runs every frame BlockObjectTool isn't active, and three
