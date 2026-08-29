@@ -6,6 +6,7 @@ using Timberborn.BlockObjectTools;
 using Timberborn.BlockSystem;
 using Timberborn.BlueprintSystem;
 using Timberborn.CameraSystem;
+using Timberborn.Coordinates;
 using Timberborn.DemolishingUI;
 using Timberborn.ForestryUI;
 using Timberborn.InputSystem;
@@ -90,6 +91,14 @@ namespace ControllerSupport
 	// PlantingPreviewPatch is create and publish the shared MeshDrawer it draws with, plus the colour
 	// itself, in GamepadPlacementState.InvalidTileDrawer/InvalidColor, since a static Harmony patch
 	// class has no constructor DI of its own to get a MarkerDrawerFactory or ISpecService from.
+	// RecoverableGoodTooltip (BuildingDeconstructionTool's "what you get back" preview) is the same
+	// shape of bug GamepadZiplineConnectionController already fixed for ZiplinePreviewTooltip: it shows
+	// through ITooltipRegistrar.ShowPriority, which never calls Tooltip.Enable, so GamepadTooltipAnchor.
+	// Current is never touched and GamepadTooltipPositionPatch falls through to the real (hidden, unmoved)
+	// mouse cursor unless WorldPosition is set. Fixed the same way here, generalized to every frame this
+	// class drives an area-selection tool rather than only the deconstruction one - harmless for every
+	// other tool in the list since nothing reads WorldPosition unless a priority tooltip is actually
+	// showing, and no mouse-hover tooltip can fire while this class hides the OS cursor anyway.
 	internal class GamepadAreaSelectionController : ILoadableSingleton, IUnloadableSingleton, IPriorityInputProcessor
 	{
 		private const float FailureLogInterval = 30f;
@@ -153,6 +162,7 @@ namespace ControllerSupport
 		public void Load()
 		{
 			_inputService.AddInputProcessor(this);
+			GamepadTooltipAnchor.CameraService = _cameraService;
 			GamepadPlacementState.InvalidTileDrawer = _markerDrawerFactory.CreateTileDrawer();
 			GamepadPlacementState.InvalidColor = GetTreeCuttingNoActionColor();
 			GamepadPlacementState.InvalidBoxDrawer = _markerDrawerFactory.CreateLargeBlockTileDrawer();
@@ -199,6 +209,7 @@ namespace ControllerSupport
 		public void Unload()
 		{
 			GamepadPlacementState.Clear();
+			ClearTooltipAnchor();
 			_inputService.ShowCursor();
 		}
 
@@ -231,6 +242,7 @@ namespace ControllerSupport
 			if (_panelTracker.HasStackedPanel)
 			{
 				GamepadPlacementState.Clear();
+				ClearTooltipAnchor();
 
 				// The dialog needs the real cursor visible to be clickable - re-hidden by _handoff on
 				// whatever frame the dialog closes and the gamepad resumes driving.
@@ -292,6 +304,7 @@ namespace ControllerSupport
 
 				GamepadPlacementState.Active = true;
 				GamepadPlacementState.GridCursor = _cursor;
+				GamepadTooltipAnchor.WorldPosition = CoordinateSystem.GridToWorldCentered(_cursor);
 
 				// With a cursor that can be placed anywhere, the sculpting tool's own Add/Remove
 				// toggle is redundant on a gamepad - decide instead from whichever cell the cursor is
@@ -333,8 +346,11 @@ namespace ControllerSupport
 			}
 
 			// See GamepadBuildingPlacementController.Update - the real mouse is driving this frame,
-			// stand fully down (not Clear()) and keep _cursor in sync with it for continuity.
+			// stand fully down (not Clear()) and keep _cursor in sync with it for continuity. Clearing
+			// the world anchor here is what lets RecoverableGoodTooltip (and any other priority tooltip)
+			// go back to following the real cursor while the mouse is in control.
 			GamepadPlacementState.Active = false;
+			ClearTooltipAnchor();
 			GamepadPlacementState.MainMouseButtonDown = false;
 			GamepadPlacementState.MainMouseButtonHeld = false;
 			GamepadPlacementState.MainMouseButtonUp = false;
@@ -499,12 +515,23 @@ namespace ControllerSupport
 
 			_active = false;
 			GamepadPlacementState.Clear();
+			ClearTooltipAnchor();
 			_inputService.ShowCursor();
+		}
+
+		// See GamepadZiplineConnectionController.ClearTooltipAnchor - Current has to clear alongside
+		// WorldPosition, or GamepadTooltipPositionPatch falls through to whatever stale UI element it
+		// last held from an unrelated gamepad hover instead of all the way through to the real mouse.
+		private static void ClearTooltipAnchor()
+		{
+			GamepadTooltipAnchor.WorldPosition = null;
+			GamepadTooltipAnchor.Current = null;
 		}
 
 		private void ReportFailure(Exception e)
 		{
 			GamepadPlacementState.Clear();
+			ClearTooltipAnchor();
 			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;

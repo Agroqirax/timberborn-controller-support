@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - The Increase/Decrease Floodgate Height keybind labels are renamed to Increase/Decrease Entity Slider in the keybind settings menu, since the shoulders now drive far more than floodgates - localized into all 14 shipped languages
 - The flow and contamination sensors' threshold slider handle now updates immediately when its value changes from outside the slider itself (the gamepad shoulders, previously only reflected after closing and reopening the entity panel); the depth sensor's own slider was unaffected, since it already refreshed live
 - The resource counter's fill-rate threshold slider handle now also updates immediately when moved with the gamepad shoulders, same fix as the flow/contamination sensors above
+- The building deconstruction tool's "goods recovered" tooltip now anchors to the gamepad cursor's grid position instead of the real (hidden) mouse cursor while an area-selection tool is gamepad-driven, matching the fix already in place for the zipline connection tool's preview tooltip
 
 ## [1.1.2.0.5] - 2026-08-28
 
