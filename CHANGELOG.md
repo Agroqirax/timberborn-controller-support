@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.2.0.6] - 2026-08-30
+
 ### Added
 
 - Gamepad rumble when an unstable core explodes, when dynamite explodes, a hazardous weather warning appears or a wonder is completed
@@ -105,6 +107,7 @@ All notable changes to this project will be documented in this file.
 - Initial release
 
 [unreleased]: https://github.com/agroqirax/timberborn-controller-support/compare/v1.1.2.0.3...HEAD
+[1.1.2.0.6]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.6
 [1.1.2.0.5]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.5
 [1.1.2.0.4]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.4
 [1.1.2.0.3]: https://github.com/agroqirax/timberborn-controller-support/releases/tag/v1.1.2.0.3
