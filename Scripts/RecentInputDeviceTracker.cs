@@ -33,17 +33,31 @@ namespace ControllerSupport
 
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 		private readonly InputService _inputService;
+		private readonly EventBus _eventBus;
 
 		public bool GamepadControlled { get; private set; } = true;
 
-		public RecentInputDeviceTracker(KeyBindingRegistry keyBindingRegistry, InputService inputService)
+		// Set in the constructor (this is a singleton) so GamepadShortcutHintPatch, a static Harmony
+		// patch with no DI access of its own, can read the current latch.
+		public static RecentInputDeviceTracker Instance { get; private set; }
+
+		// GamepadShortcutHintPatch cares about "is a gamepad connected at all" (Gamepad.current), not
+		// this class's own "which device most recently did something" latch - a player with a gamepad
+		// plugged in but currently touching the mouse should still see gamepad hints. Tracked here only
+		// to detect the plug/unplug edge and refresh already-visible hint labels.
+		private bool _wasGamepadConnected;
+
+		public RecentInputDeviceTracker(KeyBindingRegistry keyBindingRegistry, InputService inputService, EventBus eventBus)
 		{
 			_keyBindingRegistry = keyBindingRegistry;
 			_inputService = inputService;
+			_eventBus = eventBus;
+			Instance = this;
 		}
 
 		public void Load()
 		{
+			_wasGamepadConnected = Gamepad.current != null;
 		}
 
 		public void UpdateSingleton()
@@ -55,6 +69,25 @@ namespace ControllerSupport
 			else if (MouseActive())
 			{
 				GamepadControlled = false;
+			}
+
+			var isGamepadConnected = Gamepad.current != null;
+			if (isGamepadConnected != _wasGamepadConnected)
+			{
+				_wasGamepadConnected = isGamepadConnected;
+				RefreshShortcutHints();
+			}
+		}
+
+		// Base-game shortcut-hint labels (e.g. rotate/flip above the placement panel) only recompute
+		// their text on KeyReboundEvent - broadcasting it for every keybind when a gamepad is
+		// connected/disconnected is how GamepadShortcutHintPatch's device-aware text actually reaches an
+		// already-visible label instead of just the next panel that happens to get built afterwards.
+		private void RefreshShortcutHints()
+		{
+			foreach (var keyBinding in _keyBindingRegistry.KeyBindings)
+			{
+				_eventBus.Post(new KeyReboundEvent(keyBinding.Id));
 			}
 		}
 

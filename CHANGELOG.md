@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Bottom bar wraps around
+- Shortcut hint labels now show the gamepad button instead of the keyboard key whenever a gamepad is connected, even alongside a mouse/keyboard
 
 ### Fixed
 
