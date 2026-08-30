@@ -12,12 +12,14 @@ All notable changes to this project will be documented in this file.
 - Gamepad select mode now shows unfinished buildings as their greyed-out finished model
 - 3D gamepad cursor movement: dpad up/down moves the building-placement/area-selection/select-tool cursor's height
 - The Increase/Decrease Floodgate Height shoulders now also drive the mechanical/compact/deep pump's flow rate, water depth/flow/contamination sensor thresholds, the power meter's and resource counter's percent thresholds (when shown as a slider), and the weather station's early activation hours - whichever single slider the selected entity's panel is currently showing
+- The right stick now scrolls a beaver's needs list in the entity panel
 
 ### Changed
 
 - Bottom bar wraps around
 - Shortcut hint labels now show the gamepad button instead of the keyboard key whenever a gamepad is connected, even alongside a mouse/keyboard
 - Shortcut hint labels now show the actual gamepad button icon instead of text (e.g. rotate/flip's [R]/[Shift-R]/[F] hints) when a gamepad is connected; can be turned off in mod settings to fall back to text
+- The right stick now scrolls whichever list is actually nearest the current selection instead of always the first list found in a panel
 
 ### Fixed
 
@@ -30,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - The flow and contamination sensors' threshold slider handle now updates immediately when its value changes from outside the slider itself (the gamepad shoulders, previously only reflected after closing and reopening the entity panel); the depth sensor's own slider was unaffected, since it already refreshed live
 - The resource counter's fill-rate threshold slider handle now also updates immediately when moved with the gamepad shoulders, same fix as the flow/contamination sensors above
 - The building deconstruction tool's "goods recovered" tooltip now anchors to the gamepad cursor's grid position instead of the real (hidden) mouse cursor while an area-selection tool is gamepad-driven, matching the fix already in place for the zipline connection tool's preview tooltip
+- The scrollable mod list is no longer selectable
 
 ## [1.1.2.0.5] - 2026-08-28
 

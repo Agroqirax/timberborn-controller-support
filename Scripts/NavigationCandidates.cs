@@ -111,14 +111,28 @@ namespace ControllerSupport
 			// press/release-only pattern as IsInertButton below, for the case where it is not even a
 			// Button - PinnedLeversPanel's pinned-lever row presses/releases the lever from a Label's
 			// PointerDownEvent/PointerUpEvent, with no click of any kind.
+			//
+			// ScrollView's own content-container registers exactly that pattern
+			// (RegisterCallback<PointerDownEvent>/PointerUpEvent with TrickleDown.TrickleDown) on itself
+			// to drive touch-drag scrolling - nothing to do with a real click target. Without excluding
+			// it, a ScrollView whose rows carry no click handler of their own (the mismatched-mods save
+			// dialog's SimpleModItem rows, which are just Labels) falls through with `found` still
+			// false and the content-container itself becomes the candidate - one selection ring sized
+			// to the full unclipped content height, spilling past the visible viewport.
 			if (IsBigEnough(element)
-				&& (VisualElementProbe.HasClickHandler(element) || VisualElementProbe.HasPointerPressHandler(element)))
+				&& (VisualElementProbe.HasClickHandler(element)
+					|| (VisualElementProbe.HasPointerPressHandler(element) && !IsScrollViewContentContainer(element))))
 			{
 				into.Add(element);
 				return true;
 			}
 
 			return false;
+		}
+
+		private static bool IsScrollViewContentContainer(VisualElement element)
+		{
+			return element.ClassListContains(ScrollView.contentUssClassName);
 		}
 
 		// Finds real, independently-clickable Button descendants nested inside a Button that was just
@@ -203,7 +217,10 @@ namespace ControllerSupport
 			return element.name == ExtensionTogglerName;
 		}
 
-		private static bool IsDisplayed(VisualElement element)
+		// Internal rather than private: GamepadNavigationInputProcessor.NearestScrollableView reuses this
+		// to filter a flat Query<ScrollView>() result, which - unlike this class's own pruned top-down
+		// walk - happily returns a descendant sitting behind a display:none ancestor.
+		internal static bool IsDisplayed(VisualElement element)
 		{
 			return element.enabledSelf
 				&& element.visible

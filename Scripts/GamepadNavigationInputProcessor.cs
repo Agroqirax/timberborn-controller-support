@@ -17,7 +17,6 @@ namespace ControllerSupport
 		private const float FailureLogInterval = 30f;
 		private const int SubSectionSettleFrames = 8;
 		private const int InitialSelectionFrames = 60;
-		private const float ScrollDeadzone = 0.2f;
 		private const float ScrollSpeed = 1200f;
 		private const float MaxFrameTime = 0.2f;
 
@@ -33,6 +32,7 @@ namespace ControllerSupport
 		private readonly SelectionHighlighter _highlighter = new SelectionHighlighter();
 		private readonly SelectionMemory _memory = new SelectionMemory();
 		private readonly List<VisualElement> _candidates = new List<VisualElement>();
+		private readonly List<ScrollView> _scrollViewBuffer = new List<ScrollView>();
 
 		private VisualElement _scope;
 		private VisualElement _selected;
@@ -252,7 +252,15 @@ namespace ControllerSupport
 			TryRecoverFromClosedToolGroup();
 			TryInitialSelection();
 			TrySubSectionJump();
-			Scroll();
+
+			// Unlike the left stick below, the right stick very much has something behind it to
+			// protect: KeyboardCameraController reads it for pan/rotate every frame it gets to run.
+			// Reporting a successful scroll as handled is what stops that same frame - the same trick
+			// GamepadEntitySliderController's shoulders already use to steal input from the game's own
+			// zoom/priority use whenever they have a value to adjust instead. It only ever fires when
+			// Scroll() actually found a genuinely overflowing list to move, so the ordinary case -
+			// looking around with nothing scrollable on screen - leaves the camera untouched.
+			var handled = Scroll();
 
 			var direction = _reader.ReadMove(_keyBindingRegistry);
 			if (direction != Vector2Int.zero)
@@ -266,7 +274,6 @@ namespace ControllerSupport
 			// camera panning and the game's own WASD camera. Nothing else in the chain reads the left
 			// stick, so there is nothing to protect it from anyway. A button press is momentary and
 			// costs at most a frame, so those still report honestly.
-			var handled = false;
 
 			if (_inputService.UIConfirm)
 			{
@@ -403,27 +410,36 @@ namespace ControllerSupport
 			ScrollIntoView(first);
 		}
 
-		// The right stick scrolls whatever list the player is in. It is free to use here: the camera
-		// processor stands down while a panel is stacked, and in the main menu there is no camera at all.
-		// Deliberately does not move the selection - this is the player looking around the list, and
-		// yanking the cursor with the viewport would make it impossible to just read something.
-		private void Scroll()
+		// The right stick scrolls whichever list on screen actually has more content than it can show.
+		// Claiming it away from KeyboardCameraController this way, only when there is genuinely
+		// something to scroll, is what makes an entity panel's needs list reachable at all - the game
+		// gives a gamepad no other input for it, on a par with GamepadEntitySliderController's shoulders
+		// claiming input the game's own zoom/priority use would otherwise get whenever they have a
+		// value to adjust instead. Deliberately does not move the selection - this is the player looking
+		// around the list, and yanking the cursor with the viewport would make it impossible to just
+		// read something.
+		//
+		// Returns whether a list was actually scrolled, so the caller can report the frame as handled
+		// and stop the camera from also reading the same stick push.
+		private bool Scroll()
 		{
-			if (!_panelTracker.HasStackedPanel && !_dropdownTracker.IsOpen)
-			{
-				return;
-			}
-
 			var stick = CameraKeyBindingAxes.ReadSecondaryAxes(_keyBindingRegistry, CameraKeyBindingAxes.Move);
-			if (stick.magnitude < ScrollDeadzone)
+
+			// Matches CameraMovementAnalogPatch's own "magnitude <= 0f" threshold exactly, rather than
+			// the larger ScrollDeadzone this used to compare against. Camera reads the same raw axis
+			// (already deadzone-processed by the Input System's own stick handling) with no additional
+			// threshold of its own, so a bigger deadzone here only opened a window - roughly Unity's
+			// device deadzone up to this one - where a push registered for camera but not yet for us,
+			// letting the camera visibly twitch for a frame or two before scrolling took over.
+			if (stick.magnitude <= 0f)
 			{
-				return;
+				return false;
 			}
 
 			var scrollView = FindScrollView();
 			if (scrollView == null)
 			{
-				return;
+				return false;
 			}
 
 			// Capped frame time for the same reason the camera caps it: one long hitch should not fling
@@ -435,11 +451,22 @@ namespace ControllerSupport
 
 			// The setter runs both axes through their scrollers, which clamp, so no range check is needed.
 			scrollView.scrollOffset = offset;
+			return true;
 		}
 
-		// The list the selection is actually sitting in, falling back to the scope itself - an open
-		// dropdown *is* a ScrollView - and then to whatever list the panel holds.
+		// The list the selection is actually sitting in - an open dropdown *is* a ScrollView - so long
+		// as it actually needs scrolling; otherwise (or with nothing selected inside any list) whichever
+		// genuinely overflowing list in the scope sits nearest the selection. That fallback is what makes
+		// the right stick scroll the correct one of two side-by-side lists - the mismatched-mods save
+		// dialog's active-mods/saved-mods columns - depending on which button below them is selected,
+		// rather than always the first ScrollView found in tree order (always the left one).
 		private ScrollView FindScrollView()
+		{
+			var direct = FindDirectScrollView();
+			return IsScrollable(direct) ? direct : NearestScrollableView();
+		}
+
+		private ScrollView FindDirectScrollView()
 		{
 			if (_selected is BaseVerticalCollectionView collectionView)
 			{
@@ -454,7 +481,81 @@ namespace ControllerSupport
 				}
 			}
 
-			return _scope as ScrollView ?? _scope?.Q<ScrollView>();
+			return _scope as ScrollView;
+		}
+
+		private ScrollView NearestScrollableView()
+		{
+			if (_scope == null)
+			{
+				return null;
+			}
+
+			_scope.Query<ScrollView>().ToList(_scrollViewBuffer);
+
+			ScrollView best = null;
+			var bestDistance = float.MaxValue;
+			var point = _selected?.worldBound.center ?? _scope.worldBound.center;
+
+			foreach (var candidate in _scrollViewBuffer)
+			{
+				// Query<T> walks every live descendant regardless of display style - unlike
+				// NavigationCandidates' own top-down walk, which prunes a hidden subtree before ever
+				// reaching what is inside it. A panel that hides part of itself rather than tearing it
+				// down (the pause menu's own layered panels, popped back through on the way to
+				// resuming) can leave a still-attached, still-"scrollable" list sitting behind a
+				// display:none ancestor - which would otherwise claim the stick forever, since nothing
+				// ever makes it visible again to fail the IsScrollable check honestly.
+				if (!IsScrollable(candidate) || !IsDisplayedInScope(candidate))
+				{
+					continue;
+				}
+
+				var distance = (candidate.worldBound.center - point).sqrMagnitude;
+				if (distance < bestDistance)
+				{
+					bestDistance = distance;
+					best = candidate;
+				}
+			}
+
+			return best;
+		}
+
+		// Walks up from candidate to (and including) _scope, requiring every level along the way to
+		// pass NavigationCandidates.IsDisplayed - the same per-element check its own pruned walk applies
+		// while descending, just applied bottom-up here since Query<T> already did the descending.
+		private bool IsDisplayedInScope(VisualElement candidate)
+		{
+			for (var current = candidate; current != null; current = current.hierarchy.parent)
+			{
+				if (!NavigationCandidates.IsDisplayed(current))
+				{
+					return false;
+				}
+
+				if (ReferenceEquals(current, _scope))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		// scrollableWidth/scrollableHeight are internal, so this compares the content container's own
+		// layout against the clipped viewport's instead - close enough for "is there anything to scroll
+		// to" without reflecting into UI Toolkit internals for it.
+		private static bool IsScrollable(ScrollView scrollView)
+		{
+			if (scrollView?.contentContainer == null || scrollView.contentViewport == null)
+			{
+				return false;
+			}
+
+			var content = scrollView.contentContainer.layout;
+			var viewport = scrollView.contentViewport.layout;
+			return content.height > viewport.height + 1f || content.width > viewport.width + 1f;
 		}
 
 		// Confirming a bottom bar category opens its row of tools above the bar without moving the
