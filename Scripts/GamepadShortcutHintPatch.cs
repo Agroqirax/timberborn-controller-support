@@ -134,4 +134,22 @@ namespace ControllerSupport
 			return false;
 		}
 	}
+
+	// A fourth path, layered on top of the first: once GamepadShortcutHintPatch above has made
+	// DefinableInputBinding.TryGetDefinedInputBinding resolve to the gamepad binding, this postfix
+	// swaps the shortcut hint's text (e.g. "Xbox: Y") for the matching button icon, provided the mod
+	// setting is on and an icon PNG exists for that control - see GamepadShortcutIcon for the actual
+	// swap logic and GamepadIconRegistry for where the icons come from. Falls back to the plain text
+	// GamepadShortcutHintPatch already produces whenever any of those conditions aren't met, so this is
+	// purely additive on top of the existing text-hint behaviour.
+	[HarmonyPatch(typeof(KeyBindingShortcut))]
+	internal static class GamepadShortcutIconPatch
+	{
+		[HarmonyPatch(nameof(KeyBindingShortcut.Update))]
+		[HarmonyPostfix]
+		private static void Postfix(DefinableInputBinding ____definableInputBinding, ShortcutTextElement ____shortcutTextElement)
+		{
+			GamepadShortcutIcon.Apply(____shortcutTextElement, ____definableInputBinding);
+		}
+	}
 }

@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 - Bottom bar wraps around
 - Shortcut hint labels now show the gamepad button instead of the keyboard key whenever a gamepad is connected, even alongside a mouse/keyboard
+- Shortcut hint labels now show the actual gamepad button icon instead of text (e.g. rotate/flip's [R]/[Shift-R]/[F] hints) when a gamepad is connected; can be turned off in mod settings to fall back to text
 
 ### Fixed
 
