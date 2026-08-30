@@ -606,6 +606,34 @@ field read, not a candidate walk - and the moment it goes `None` while the selec
 that row, sends the player back to the category button that opened it, exactly where B would otherwise
 have left them stranded.
 
+## Mod Settings (eMka.ModSettings) integration
+
+Optional/toggleable features go through the [Mod Settings](https://github.com/eMkaQQ/timberborn-modding)
+mod rather than a bespoke settings UI - it's now a `RequiredMods` entry in `manifest.json`
+(`eMka.ModSettings`, matching whatever version its own `manifest.json` currently ships).
+
+- Its precompiled assemblies (`ModSettings.Core.dll`, `ModSettings.CoreUI.dll`, `ModSettings.Common.dll`,
+  `ModSettings.CommonUI.dll`, ...) live in `Assets/Plugins/Timberborn/` alongside the game's own DLLs -
+  gitignored like every other `Assets/Plugins*` DLL (see the `.meta` section above; nothing to commit).
+  `overrideReferences: false` on `ControllerSupport.asmdef` means they're already referenced regardless
+  of `precompiledReferences` (see the asmdef gotcha above) - only `ModSettings.Core.dll` is listed there
+  today, for documentation; add `ModSettings.CoreUI.dll` etc. only once a custom `IModSettingElement` is
+  actually written.
+- A setting is a `ModSetting<int|float|string|bool>` (or a `ModSettings.Common` type like
+  `RangeIntModSetting`, `LimitedStringModSetting` for a dropdown, `ColorModSetting`) exposed as a public
+  property on a class deriving `ModSettingsOwner` (`ModSettings.Core`). Properties are discovered and
+  persisted automatically by reflection in `ModSettingsOwner.Load()` - no manual registration call
+  needed for the common case; `AddCustomModSetting` is only for a setting built in `OnBeforeLoad`
+  (e.g. one whose range depends on another setting) rather than declared as a property initializer.
+- `ModId` must match this mod's own `manifest.json` `Id` (`Agroqirax.ControllerSupport`) - the owner's
+  `RegisterModSettingOwner` looks it up in `ModRepository.EnabledMods` and silently no-ops (just a
+  `Debug.LogWarning`) if it doesn't match, rather than throwing.
+- `ChangeableOn` (a `ModSettingsContext` flags enum: `MainMenu`/`Game`/`MapEditor`/`All`) controls where
+  in the settings UI the entry is editable, independent of which `[Context(...)]` scopes bind it.
+- The owner class is bound `AsSingleton()` in a mod's own `Configurator` for the `[Context("MainMenu")]`
+  / `[Context("Game")]` scopes - `ModSettings.Core`'s own `ModSettingsCoreConfigurator` (which binds
+  `ModSettingsOwnerRegistry`) is tagged for all three contexts already, so nothing extra is needed there.
+
 ## Environment note
 
 The dev machine's controller is a Steam Controller where Steam Input can't be disabled. It only

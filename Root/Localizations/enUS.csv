@@ -13,3 +13,5 @@ KeyBinding.DecreaseFloodgateHeight,Decrease entity slider,Label of the key that 
 KeyBinding.IncreaseFloodgateHeight,Increase entity slider,Label of the key that increases the height of the selected floodgate. Floodgate should be the same as Building.Floodgate.DisplayName
 KeyBinding.CursorHeightUp,Cursor Height Up,
 KeyBinding.CursorHeightDown,Cursor Height Down,
+ControllerSupport.Settings.HapticsHeader,Controller Vibration,
+ControllerSupport.Settings.EnableVibration,Enable controller vibration,

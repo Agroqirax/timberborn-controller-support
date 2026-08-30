@@ -39,7 +39,11 @@
         "Timberborn.WaterSystemRendering.dll",
         "Timberborn.MapEditorBrushesUI.dll",
         "Timberborn.MapEditorNaturalResourcesUI.dll",
-        "Timberborn.ZiplineSystem.dll"
+        "Timberborn.ZiplineSystem.dll",
+        "ModSettings.Core.dll",
+        "Timberborn.HazardousWeatherSystemUI.dll",
+        "Timberborn.GameWonderCompletion.dll",
+        "Timberborn.Explosions.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
