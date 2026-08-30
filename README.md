@@ -76,8 +76,14 @@ The updated building placement, tree cutting area, planting, demolishing & prior
 
 ## Features
 
-- Reworked building placement, selection & tools to use sticks instead of mouse cursor
-- Analog inputs for movement, zoom, etc
+- Full UI navigation with the stick/dpad
+- Reworked building placement & area selection tools to use a 3D stick-driven cursor instead of the mouse
+- Mouse/keyboard and controller can be used interchangeably at any time, including mid-tool
+- Analog camera pan/tilt/rotate and zoom, with a rebindable modifier keybind for switching the right stick between pan and rotate
+- Shared shoulder-button control for workplace/construction priority, floodgate/pump/valve/sensor/power-meter/resource-counter/weather-station sliders
+- Shortcut hint labels show the actual gamepad button icon (or text, toggleable) instead of the keyboard key whenever a gamepad is connected
+- Gamepad rumble for unstable core/dynamite explosions, hazardous weather warnings and wonder completions
+- Steam Input warning and custom controller layout link shown on startup if no controller is detected (Steam only)
 
 ### Mod support
 
