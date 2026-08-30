@@ -355,7 +355,8 @@ namespace ControllerSupport
 				return;
 			}
 
-			var next = SpatialNavigator.Next(_candidates, _selected, direction);
+			var next = SpatialNavigator.Next(_candidates, _selected, direction)
+				?? BottomBarNavigation.WrapHorizontal(_candidates, _selected, direction);
 			if (next != null)
 			{
 				Select(next);

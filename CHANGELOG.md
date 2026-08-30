@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
 - 3D gamepad cursor movement: dpad up/down moves the building-placement/area-selection/select-tool cursor's height
 - The Increase/Decrease Floodgate Height shoulders now also drive the mechanical/compact/deep pump's flow rate, water depth/flow/contamination sensor thresholds, the power meter's and resource counter's percent thresholds (when shown as a slider), and the weather station's early activation hours - whichever single slider the selected entity's panel is currently showing
 
+### Changed
+
+- Bottom bar wraps around
+
 ### Fixed
 
 - The gamepad cursor's selection is no longer one voxel below the highlighted face on the tools that pick objects

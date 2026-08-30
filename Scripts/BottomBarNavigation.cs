@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace ControllerSupport
@@ -88,6 +89,63 @@ namespace ControllerSupport
 			}
 
 			return best;
+		}
+
+		// SpatialNavigator deliberately does not wrap - see ARCHITECTURE.md, it used to and that read as
+		// broken in a two-row toolbar, where up/down from the top row landed on the bottom one instead of
+		// stopping. But MainSection and SubSection are each a single row, so left/right wrapping there
+		// carries none of that ambiguity - called only as a fallback once SpatialNavigator.Next has
+		// already come back empty for a horizontal push.
+		public static VisualElement WrapHorizontal(List<VisualElement> candidates, VisualElement current, Vector2Int direction)
+		{
+			if (current == null || direction.x == 0 || direction.y != 0)
+			{
+				return null;
+			}
+
+			var bar = NearestBarSection(current);
+			if (bar == null)
+			{
+				return null;
+			}
+
+			VisualElement best = null;
+			var bestX = 0f;
+
+			foreach (var candidate in candidates)
+			{
+				if (ReferenceEquals(candidate, current) || !bar.Contains(candidate))
+				{
+					continue;
+				}
+
+				var x = candidate.worldBound.xMin;
+				var isBetter = best == null
+					|| (direction.x > 0 && x < bestX - Tolerance)
+					|| (direction.x < 0 && x > bestX + Tolerance);
+
+				if (isBetter)
+				{
+					best = candidate;
+					bestX = x;
+				}
+			}
+
+			return best;
+		}
+
+		// The nearest MainSection or SubSection ancestor - whichever bar `element` actually belongs to.
+		private static VisualElement NearestBarSection(VisualElement element)
+		{
+			for (var current = element; current != null; current = current.hierarchy.parent)
+			{
+				if (current.name == MainSectionName || current.name == SubSectionName)
+				{
+					return current;
+				}
+			}
+
+			return null;
 		}
 
 		private static VisualElement AncestorNamed(VisualElement element, string name)

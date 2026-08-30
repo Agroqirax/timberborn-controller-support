@@ -391,10 +391,14 @@ own internal layout 1:1 (e.g. `KeyBindings/UI/KeyBinding.Cancel.blueprint.json`,
 
 ## Navigation feel, and two things that are deliberately absent
 
-- **No wrapping.** Reaching the end of a row or column stops there. It used to wrap to the far end,
-  which reads fine in a long settings list but is actively confusing in the two-row toolbar: pushing
-  up from the top row dropped you back onto the bottom one, and repeated up/down walked the
-  selection sideways across the bar.
+- **No wrapping, except left/right in the bottom bar.** Reaching the end of a row or column
+  otherwise stops there. General wrapping used to exist and was removed: it read fine in a long
+  settings list but was actively confusing in the two-row toolbar, where pushing up from the top row
+  dropped you back onto the bottom one and repeated up/down walked the selection sideways across the
+  bar. `BottomBarNavigation.WrapHorizontal` reintroduces it narrowly - only as a fallback once
+  `SpatialNavigator.Next` returns null for a horizontal push, and only within whichever single row
+  (`MainSection`'s categories or the open `SubSection` tool row) the current selection belongs to -
+  so it never touches the up/down case that caused the original problem.
 - **Ties break on cross-axis centre distance, not tree order.** The toolbar's two rows are often
   offset by half a button, so a push upwards overlaps two buttons equally and both sit exactly the
   same distance away. Taking the first one found meant always taking the left one - which is what
