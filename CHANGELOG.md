@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Gamepad button icons in shortcut hints are now always shown; removed the "Show gamepad button icons in shortcut hints" mod setting
+
 ## [1.1.2.0.6] - 2026-08-30
 
 ### Added

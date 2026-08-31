@@ -17,19 +17,15 @@ namespace ControllerSupport
 
 		private readonly IAssetLoader _assetLoader;
 
-		private readonly GamepadShortcutIconSettings _settings;
-
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 
 		private readonly EventBus _eventBus;
 
 		private readonly Dictionary<string, Sprite> _cache = new();
 
-		public GamepadIconRegistry(IAssetLoader assetLoader, GamepadShortcutIconSettings settings,
-			KeyBindingRegistry keyBindingRegistry, EventBus eventBus)
+		public GamepadIconRegistry(IAssetLoader assetLoader, KeyBindingRegistry keyBindingRegistry, EventBus eventBus)
 		{
 			_assetLoader = assetLoader;
-			_settings = settings;
 			_keyBindingRegistry = keyBindingRegistry;
 			_eventBus = eventBus;
 		}
@@ -49,10 +45,6 @@ namespace ControllerSupport
 				_eventBus.Post(new KeyReboundEvent(keyBinding.Id));
 			}
 		}
-
-		// False both when the setting is off and before this singleton has loaded - callers just fall
-		// back to text either way.
-		internal static bool IconsEnabled => _instance?._settings.ShowIcons.Value ?? false;
 
 		// Sprite is null both when the key has no matching icon and before this singleton has loaded -
 		// callers just fall back to text either way.

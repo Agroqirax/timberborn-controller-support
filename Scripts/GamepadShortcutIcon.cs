@@ -56,10 +56,6 @@ namespace ControllerSupport
 		private static bool TryGetIconSprite(DefinableInputBinding definableInputBinding, out UnityEngine.Sprite sprite)
 		{
 			sprite = null;
-			if (!GamepadIconRegistry.IconsEnabled)
-			{
-				return false;
-			}
 			if (!definableInputBinding.TryGetDefinedInputBinding(out var inputBinding))
 			{
 				return false;
