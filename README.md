@@ -36,25 +36,25 @@ Most controls can be rebound but this is still being worked on.
 
 | Button                                                                              | Action           |
 | ----------------------------------------------------------------------------------- | ---------------- |
-| <img src="Data/Sprites/GamepadButtons/leftStick_all.png" height=12em/> Left stick   | Navigate UI      |
-| <img src="Data/Sprites/GamepadButtons/rightStick_all.png" height=12em/> Right stick | Scroll           |
-| <img src="Data/Sprites/GamepadButtons/buttonSouth.png" height=12em/> A              | Confirm / Select |
-| <img src="Data/Sprites/GamepadButtons/buttonEast.png" height=12em/> B               | Cancel / back    |
+| <img src="Data/Sprites/GamepadButtons/leftStick_all.png" height=15em/> Left stick   | Navigate UI      |
+| <img src="Data/Sprites/GamepadButtons/rightStick_all.png" height=15em/> Right stick | Scroll           |
+| <img src="Data/Sprites/GamepadButtons/buttonSouth.png" height=15em/> A              | Confirm / Select |
+| <img src="Data/Sprites/GamepadButtons/buttonEast.png" height=15em/> B               | Cancel / back    |
 
 ### Game mode
 
 | Button                                                                                                  | Action                                         |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| <img src="Data/Sprites/GamepadButtons/rightStick_all.png" height=12em/> Right stick                     | Pan camera                                     |
-| <img src="Data/Sprites/GamepadButtons/rightStickPress.png" height=12em/> Right stick while pressed down | Tilt / Rotate camera                           |
-| <img src="Data/Sprites/GamepadButtons/leftTrigger.png" height=12em/> Left trigger                       | Zoom in                                        |
-| <img src="Data/Sprites/GamepadButtons/rightTrigger.png" height=12em/> Right trigger                     | Zoom out                                       |
-| <img src="Data/Sprites/GamepadButtons/leftShoulder.png" height=12em/> Left shoulder                     | Decrease adjustment \*                         |
-| <img src="Data/Sprites/GamepadButtons/rightShoulder.png" height=12em/> Right shoulder                   | Increase adjustment \*                         |
-| <img src="Data/Sprites/GamepadButtons/buttonEast.png" height=12em/> X                                   | Delete building                                |
-| <img src="Data/Sprites/GamepadButtons/buttonNorth.png" height=12em/> Y                                  | Unique building action                         |
-| <img src="Data/Sprites/GamepadButtons/select.png" height=12em/> Select / View                           | Enter [select mode](#select-and-building-mode) |
-| <img src="Data/Sprites/GamepadButtons/start.png" height=12em/> Start / Menu                             | Pause building                                 |
+| <img src="Data/Sprites/GamepadButtons/rightStick_all.png" height=15em/> Right stick                     | Pan camera                                     |
+| <img src="Data/Sprites/GamepadButtons/rightStickPress.png" height=15em/> Right stick while pressed down | Tilt / Rotate camera                           |
+| <img src="Data/Sprites/GamepadButtons/leftTrigger.png" height=15em/> Left trigger                       | Zoom in                                        |
+| <img src="Data/Sprites/GamepadButtons/rightTrigger.png" height=15em/> Right trigger                     | Zoom out                                       |
+| <img src="Data/Sprites/GamepadButtons/leftShoulder.png" height=15em/> Left shoulder                     | Decrease adjustment \*                         |
+| <img src="Data/Sprites/GamepadButtons/rightShoulder.png" height=15em/> Right shoulder                   | Increase adjustment \*                         |
+| <img src="Data/Sprites/GamepadButtons/buttonEast.png" height=15em/> X                                   | Delete building                                |
+| <img src="Data/Sprites/GamepadButtons/buttonNorth.png" height=15em/> Y                                  | Unique building action                         |
+| <img src="Data/Sprites/GamepadButtons/select.png" height=15em/> Select / View                           | Enter [select mode](#select-and-building-mode) |
+| <img src="Data/Sprites/GamepadButtons/start.png" height=15em/> Start / Menu                             | Pause building                                 |
 
 \*Adjustments are building specific. Construction sites change the construction priority, workplaces change the workplace priority, floodgates, valves, pumps, etc change their height/flowrate/slider. If nothing is selected the game speed is adjusted.
 
@@ -62,20 +62,20 @@ Most controls can be rebound but this is still being worked on.
 
 | Button                                                                 | Action |
 | ---------------------------------------------------------------------- | ------ |
-| <img src="Data/Sprites/GamepadButtons/buttonWest.png" height=12em/> X  | Undo   |
-| <img src="Data/Sprites/GamepadButtons/buttonNorth.png" height=12em/> Y | Redo   |
+| <img src="Data/Sprites/GamepadButtons/buttonWest.png" height=15em/> X  | Undo   |
+| <img src="Data/Sprites/GamepadButtons/buttonNorth.png" height=15em/> Y | Redo   |
 
 ### Select and building mode
 
 | Button                                                                                | Action                            |
 | ------------------------------------------------------------------------------------- | --------------------------------- |
-| <img src="Data/Sprites/GamepadButtons/leftStick_all.png" height=12em/> Left stick     | Move cursor / selection           |
-| <img src="Data/Sprites/GamepadButtons/leftShoulder.png" height=12em/> Left shoulder   | Rotate left                       |
-| <img src="Data/Sprites/GamepadButtons/rightShoulder.png" height=12em/> Right shoulder | Rotate right                      |
-| <img src="Data/Sprites/GamepadButtons/buttonSouth.png" height=12em/> A                | Place / Select / Hold to expand\* |
-| <img src="Data/Sprites/GamepadButtons/buttonEast.png" height=12em/> B                 | Leave                             |
-| <img src="Data/Sprites/GamepadButtons/buttonNorth.png" height=12em/> Y                | Flip building                     |
-| <img src="Data/Sprites/GamepadButtons/select.png" height=12em/> Select / View         | Enter / leave                     |
+| <img src="Data/Sprites/GamepadButtons/leftStick_all.png" height=15em/> Left stick     | Move cursor / selection           |
+| <img src="Data/Sprites/GamepadButtons/leftShoulder.png" height=15em/> Left shoulder   | Rotate left                       |
+| <img src="Data/Sprites/GamepadButtons/rightShoulder.png" height=15em/> Right shoulder | Rotate right                      |
+| <img src="Data/Sprites/GamepadButtons/buttonSouth.png" height=15em/> A                | Place / Select / Hold to expand\* |
+| <img src="Data/Sprites/GamepadButtons/buttonEast.png" height=15em/> B                 | Leave                             |
+| <img src="Data/Sprites/GamepadButtons/buttonNorth.png" height=15em/> Y                | Flip building                     |
+| <img src="Data/Sprites/GamepadButtons/select.png" height=15em/> Select / View         | Enter / leave                     |
 
 If there is something selectable at the cursor, it will be highlighted. Press A to select.
 
