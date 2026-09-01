@@ -16,3 +16,18 @@ KeyBinding.CursorHeightDown,İmleç yüksekliğini azalt,
 ControllerSupport.Settings.HapticsHeader,Denetleyici Titreşimi,
 ControllerSupport.Settings.EnableVibration,Denetleyici titreşimini etkinleştir,
 ControllerSupport.Settings.ShortcutHintsHeader,Kısayol İpuçları,
+ControllerSupport.Settings.ShowInputHints,Oyun kolu giriş ipuçlarını göster
+ControllerSupport.Settings.HintStripPosition.Top,Üst
+ControllerSupport.Settings.HintStripPosition.Bottom,Alt
+ControllerSupport.Settings.HintStripPosition.None,Yok
+ControllerSupport.Hints.Move,Hareket
+ControllerSupport.Hints.Scroll,Kaydır
+ControllerSupport.Hints.Select,Seç
+ControllerSupport.Hints.Place,Yerleştir
+ControllerSupport.Hints.Mark,İşaretle
+ControllerSupport.Hints.Rotate,Döndür
+ControllerSupport.Hints.Zoom,Yakınlaştır
+ControllerSupport.Hints.Priority,Öncelik
+ControllerSupport.Hints.Adjust,Ayarla
+ControllerSupport.Hints.Speed,Hız
+ControllerSupport.Hints.CursorHeight,Yükseklik

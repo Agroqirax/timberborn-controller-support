@@ -156,7 +156,7 @@ namespace ControllerSupport
 		private static readonly Rule[] Rules =
 		{
 			// --- Confirm (A) ---
-			new Rule(c => c.HasDialogDefaultAction, 5, ForBinding("ControllerSupport.Hints.Confirm", "Confirm")),
+			new Rule(c => c.HasDialogDefaultAction, 5, ForBinding("KeyBinding.Confirm", "Confirm")),
 			new Rule(c => c.ToolEngaged && c.BuildingPlacementActive, 4, ForBinding("ControllerSupport.Hints.Place", "Confirm")),
 			new Rule(c => c.ToolEngaged && c.AreaSelectionActive, 4, ForBinding("ControllerSupport.Hints.Mark", "Confirm")),
 			// Any other engaged tool - gamepad select mode (GamepadSelectionController) and the zipline
@@ -167,7 +167,7 @@ namespace ControllerSupport
 			new Rule(c => c.ToolEngaged && !c.BuildingPlacementActive && !c.AreaSelectionActive, 4,
 				ForBinding("ControllerSupport.Hints.Select", "Confirm")),
 			new Rule(c => c.DropdownOpen, 3, ForBinding("ControllerSupport.Hints.Select", "Confirm")),
-			new Rule(c => c.BottomBarCategorySelected, 2, ForBinding("ControllerSupport.Hints.SelectTool", "Confirm")),
+			new Rule(c => c.BottomBarCategorySelected, 2, ForBinding("Tool.Cursor.Tooltip", "Confirm")),
 			new Rule(c => c.EntityPanelOpen, 1, ForBinding("ControllerSupport.Hints.Select", "Confirm")),
 			new Rule(_ => true, 0, ForBinding("ControllerSupport.Hints.Select", "Confirm")),
 
@@ -182,16 +182,16 @@ namespace ControllerSupport
 			// button regardless of whether its row was actually open, since that flag only means
 			// "this is a category button", not "a row is open" (reported 2026-08-31, "it's just when the
 			// cursor is on the bottombar").
-			new Rule(c => c.HasDialogDefaultAction, 5, ForBinding("ControllerSupport.Hints.Cancel", "Cancel")),
+			new Rule(c => c.HasDialogDefaultAction, 5, ForBinding("KeyBinding.Cancel", "Cancel")),
 			// Any pushed panel, not just ones with a recognisable default confirm button -
 			// PanelStack.ProcessInput's own Cancel handling backs out of any of them generically. Covers
 			// submenus HasDialogDefaultAction can't (main menu's new-game creation screen, the load-game
 			// save selector - reported 2026-08-31, "if I'm on a submenu... it doesn't show B back").
-			new Rule(c => c.HasStackedPanel, 4, ForBinding("ControllerSupport.Hints.Back", "Cancel")),
-			new Rule(c => c.ToolEngaged, 4, ForBinding("ControllerSupport.Hints.Cancel", "Cancel")),
-			new Rule(c => c.DropdownOpen, 3, ForBinding("ControllerSupport.Hints.Back", "Cancel")),
-			new Rule(c => c.WithinOpenBottomBarSubSection, 2, ForBinding("ControllerSupport.Hints.Cancel", "Cancel")),
-			new Rule(c => c.EntityPanelOpen, 1, ForBinding("ControllerSupport.Hints.ClosePanel", "Cancel")),
+			new Rule(c => c.HasStackedPanel, 4, ForBinding("Core.NavigationBack", "Cancel")),
+			new Rule(c => c.ToolEngaged, 4, ForBinding("KeyBinding.Cancel", "Cancel")),
+			new Rule(c => c.DropdownOpen, 3, ForBinding("Core.NavigationBack", "Cancel")),
+			new Rule(c => c.WithinOpenBottomBarSubSection, 2, ForBinding("KeyBinding.Cancel", "Cancel")),
+			new Rule(c => c.EntityPanelOpen, 1, ForBinding("EntityPanel.Close", "Cancel")),
 
 			// --- Move (stick/d-pad) - always relevant. Specificity 1, not tied with Zoom's 0 below:
 			// when both are competing for the last bit of space, navigating is more fundamental than

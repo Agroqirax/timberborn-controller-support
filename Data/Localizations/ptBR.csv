@@ -16,3 +16,18 @@ KeyBinding.CursorHeightDown,Diminuir altura do cursor,
 ControllerSupport.Settings.HapticsHeader,Vibração do controle,
 ControllerSupport.Settings.EnableVibration,Ativar vibração do controle,
 ControllerSupport.Settings.ShortcutHintsHeader,Dicas de atalhos,
+ControllerSupport.Settings.ShowInputHints,Mostrar dicas de entrada do controle
+ControllerSupport.Settings.HintStripPosition.Top,Topo
+ControllerSupport.Settings.HintStripPosition.Bottom,Inferior
+ControllerSupport.Settings.HintStripPosition.None,Nenhum
+ControllerSupport.Hints.Move,Mover
+ControllerSupport.Hints.Scroll,Rolar
+ControllerSupport.Hints.Select,Selecionar
+ControllerSupport.Hints.Place,Colocar
+ControllerSupport.Hints.Mark,Marcar
+ControllerSupport.Hints.Rotate,Girar
+ControllerSupport.Hints.Zoom,Zoom
+ControllerSupport.Hints.Priority,Prioridade
+ControllerSupport.Hints.Adjust,Ajustar
+ControllerSupport.Hints.Speed,Velocidade
+ControllerSupport.Hints.CursorHeight,Altura

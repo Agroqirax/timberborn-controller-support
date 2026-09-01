@@ -16,3 +16,18 @@ KeyBinding.CursorHeightDown,커서 높이 내리기,
 ControllerSupport.Settings.HapticsHeader,컨트롤러 진동,
 ControllerSupport.Settings.EnableVibration,컨트롤러 진동 활성화,
 ControllerSupport.Settings.ShortcutHintsHeader,단축키 안내,
+ControllerSupport.Settings.ShowInputHints,게임패드 입력 힌트 표시
+ControllerSupport.Settings.HintStripPosition.Top,위
+ControllerSupport.Settings.HintStripPosition.Bottom,아래
+ControllerSupport.Settings.HintStripPosition.None,없음
+ControllerSupport.Hints.Move,이동
+ControllerSupport.Hints.Scroll,스크롤
+ControllerSupport.Hints.Select,선택
+ControllerSupport.Hints.Place,배치
+ControllerSupport.Hints.Mark,표시
+ControllerSupport.Hints.Rotate,회전
+ControllerSupport.Hints.Zoom,확대/축소
+ControllerSupport.Hints.Priority,우선순위
+ControllerSupport.Hints.Adjust,조정
+ControllerSupport.Hints.Speed,속도
+ControllerSupport.Hints.CursorHeight,높이

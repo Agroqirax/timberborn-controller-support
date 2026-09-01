@@ -16,3 +16,18 @@ KeyBinding.CursorHeightDown,Опустити висоту курсора,
 ControllerSupport.Settings.HapticsHeader,Вібрація контролера,
 ControllerSupport.Settings.EnableVibration,Увімкнути вібрацію контролера,
 ControllerSupport.Settings.ShortcutHintsHeader,Підказки щодо швидких клавіш,
+ControllerSupport.Settings.ShowInputHints,Показувати підказки керування геймпадом
+ControllerSupport.Settings.HintStripPosition.Top,Зверху
+ControllerSupport.Settings.HintStripPosition.Bottom,Знизу
+ControllerSupport.Settings.HintStripPosition.None,Немає
+ControllerSupport.Hints.Move,Переміщення
+ControllerSupport.Hints.Scroll,Прокручування
+ControllerSupport.Hints.Select,Вибрати
+ControllerSupport.Hints.Place,Розмістити
+ControllerSupport.Hints.Mark,Позначити
+ControllerSupport.Hints.Rotate,Повернути
+ControllerSupport.Hints.Zoom,Масштаб
+ControllerSupport.Hints.Priority,Пріоритет
+ControllerSupport.Hints.Adjust,Налаштувати
+ControllerSupport.Hints.Speed,Швидкість
+ControllerSupport.Hints.CursorHeight,Висота

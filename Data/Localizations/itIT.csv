@@ -16,3 +16,18 @@ KeyBinding.CursorHeightDown,Diminuisci altezza cursore,
 ControllerSupport.Settings.HapticsHeader,Vibrazione del controller,
 ControllerSupport.Settings.EnableVibration,Abilita la vibrazione del controller,
 ControllerSupport.Settings.ShortcutHintsHeader,Suggerimenti sulle scorciatoie,
+ControllerSupport.Settings.ShowInputHints,Mostra suggerimenti comandi del gamepad
+ControllerSupport.Settings.HintStripPosition.Top,In alto
+ControllerSupport.Settings.HintStripPosition.Bottom,In basso
+ControllerSupport.Settings.HintStripPosition.None,Nessuno
+ControllerSupport.Hints.Move,Sposta
+ControllerSupport.Hints.Scroll,Scorri
+ControllerSupport.Hints.Select,Seleziona
+ControllerSupport.Hints.Place,Posiziona
+ControllerSupport.Hints.Mark,Segna
+ControllerSupport.Hints.Rotate,Ruota
+ControllerSupport.Hints.Zoom,Zoom
+ControllerSupport.Hints.Priority,Priorità
+ControllerSupport.Hints.Adjust,Regola
+ControllerSupport.Hints.Speed,Velocità
+ControllerSupport.Hints.CursorHeight,Altezza
