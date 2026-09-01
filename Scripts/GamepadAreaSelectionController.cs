@@ -523,7 +523,10 @@ namespace ControllerSupport
 		// and RecoveredGoodStackDeletionTool the same way it picks up BuildingDeconstructionTool, with
 		// nothing tool-specific to add if a future mod or DLC introduces another BlockObjectDeletionTool<T>
 		// subclass.
-		private static bool IsAreaSelectionTool(ITool tool)
+		// Internal rather than private: GamepadHintResolver reuses this to classify ToolService.ActiveTool
+		// the same way this controller already does, instead of re-deriving a second copy of the tool-type
+		// walk for the hint strip.
+		internal static bool IsAreaSelectionTool(ITool tool)
 		{
 			if (tool is PlantingTool || tool is CancelPlantingTool || tool is TreeCuttingAreaSelectionTool
 				|| tool is DemolishableSelectionTool || tool is DemolishableUnselectionTool

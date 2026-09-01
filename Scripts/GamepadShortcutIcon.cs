@@ -74,7 +74,11 @@ namespace ControllerSupport
 		// empty segment (from the leading slash) and the device-name segment leaves exactly the control
 		// path this mod's icon PNGs are named after (e.g. "leftStick_up"), the same names the SVG source
 		// groups already use.
-		private static string GetIconKey(InputBinding inputBinding)
+		//
+		// Internal rather than private: GamepadHintResolver/GamepadHintStripRenderer reuse this to turn a
+		// resolved gamepad InputBinding into the same icon key this class already computes for the base
+		// game's own keybind hints, rather than re-deriving the path-parsing logic a second time.
+		internal static string GetIconKey(InputBinding inputBinding)
 		{
 			var segments = inputBinding.InputControl.path.Split('/');
 			return string.Join("_", segments, 2, segments.Length - 2);

@@ -42,6 +42,19 @@ namespace ControllerSupport
 			return null;
 		}
 
+		// True once the player has actually moved onto a tool inside an OPEN category's row - unlike
+		// SubSectionFor above, which answers "is this element a bottom-bar category button at all" and
+		// returns non-null for a MainSection button whether or not its row has ever been opened.
+		// GamepadHintResolver needs this stronger distinction: B only usefully closes a category's row
+		// once one is actually open, not merely because the ring happens to be sitting on a category
+		// that could open one - conflating the two made the Cancel hint show while just browsing
+		// MainSection with nothing open (reported 2026-08-31, "it's just when the cursor is on the
+		// bottombar").
+		public static bool IsWithinOpenSubSection(VisualElement element)
+		{
+			return AncestorNamed(element, SubSectionName) != null;
+		}
+
 		// Where the cursor should start out on the bare HUD: the leftmost category in the always-visible
 		// row, which is the cursor tool in the Game scene. MainSection only shows up among the
 		// candidates at all when the scope is the bare HUD - a stacked panel's own scope never contains

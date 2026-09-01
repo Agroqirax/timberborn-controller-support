@@ -111,6 +111,49 @@ namespace ControllerSupport
 			_inputService.AddInputProcessor(this);
 		}
 
+		// Mirrors ProcessInput's own component/mode cascade below, minus the construction-site deference
+		// (a caller comparing this against other shoulder-slot meanings by specificity, e.g.
+		// GamepadHintResolver, already encodes that precedence itself) and minus actually driving
+		// anything - just "would one of these fragments' sliders show for this selection right now".
+		// Kept as a separate method rather than folding into ProcessInput so a hint-resolver caller
+		// doesn't have to fabricate the decrease/increase actions actually stepping the slider.
+		internal static bool HasApplicableSlider(SelectableObject selected)
+		{
+			// A real Floodgate is deliberately NOT one of the types ProcessInput drives below -
+			// FloodgateFragment (base game) already owns IncreaseFloodgateHeight/DecreaseFloodgateHeight
+			// natively for actual floodgates, this controller only reuses that same physical shoulder
+			// pair for OTHER buildings. This method only answers "would these two keys drive some
+			// fragment's slider right now", and for a real floodgate that's still true, just via a
+			// different owner - omitting it here was a bug (reported 2026-08-31: selecting a floodgate
+			// fell through to the "nothing selected" Speed hint instead of showing Adjust).
+			if (selected.GetComponent<Floodgate>())
+			{
+				return true;
+			}
+
+			if (selected.GetComponent<ThrottlingValve>() || selected.GetComponent<FillValve>()
+				|| selected.GetComponent<WaterMover>() || selected.GetComponent<DepthSensor>()
+				|| selected.GetComponent<FlowSensor>() || selected.GetComponent<ContaminationSensor>())
+			{
+				return true;
+			}
+
+			var powerMeter = selected.GetComponent<PowerMeter>();
+			if (powerMeter && powerMeter.IsPercentThreshold)
+			{
+				return true;
+			}
+
+			var resourceCounter = selected.GetComponent<ResourceCounter>();
+			if (resourceCounter && resourceCounter.Mode == ResourceCounterMode.FillRate)
+			{
+				return true;
+			}
+
+			var weatherStation = selected.GetComponent<WeatherStation>();
+			return weatherStation && weatherStation.EarlyActivationEnabled;
+		}
+
 		public bool ProcessInput()
 		{
 			if (_panelTracker.HasStackedPanel || !_entitySelectionService.IsAnythingSelected)

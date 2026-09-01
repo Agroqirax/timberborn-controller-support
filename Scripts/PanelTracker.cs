@@ -84,6 +84,14 @@ namespace ControllerSupport
 			}
 		}
 
+		// The container PanelStack.Initialize returned, regardless of what's currently pushed on top of
+		// it - unlike TopElement, which prefers the stacked panel's own element whenever HasStackedPanel
+		// is true. Needed by GamepadMainMenuHintStripController: in the main menu, HasStackedPanel is
+		// true almost the entire time (the main menu's own screens - main buttons, settings, load game -
+		// are themselves pushed panels, unlike the Game scene's bare HUD), so waiting for "nothing
+		// stacked" the way the Game/MapEditor mount does would never actually mount anything.
+		public VisualElement StableRoot => Root();
+
 		public void Load()
 		{
 			_eventBus.Register(this);

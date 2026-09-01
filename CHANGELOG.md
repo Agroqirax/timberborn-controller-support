@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Persistent gamepad input-hint strip ("(A) Select", etc.) showing the player's most relevant actions for whatever they're currently doing - entity panel, dialog, building placement, area selection, scrollable list, bottom bar. Configurable to appear at the Top or Bottom of the screen, or turned off, via a new mod setting
+
 ### Changed
 
 - Gamepad button icons in shortcut hints are now always shown; removed the "Show gamepad button icons in shortcut hints" mod setting

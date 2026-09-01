@@ -142,6 +142,14 @@ namespace ControllerSupport
 			return SafeProcessInputCore();
 		}
 
+		// Read-only, for GamepadHintStripController: the strip needs to know what the player is
+		// currently aimed at (for BottomBarNavigation.SubSectionFor) and whether a list is scrollable
+		// (below) to pick the right hints, without duplicating this processor's own selection/scroll
+		// state or its delicate event-ordering logic.
+		internal VisualElement Selected => _selected;
+
+		internal bool HasScrollableList => FindScrollView() != null;
+
 		// Focusing a TextField blocks the whole regular input-processor chain - see the guard at the
 		// top of ProcessInputCore for why - so this is the only way B still reaches the game while the
 		// player is editing a name. LateUpdate runs after InputService.UpdateSingleton has decided

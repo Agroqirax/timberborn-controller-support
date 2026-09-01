@@ -265,7 +265,10 @@ namespace ControllerSupport
 			"BuildingBlueprints.Tools.BuildBuildingBlueprintTool",
 		};
 
-		private static bool IsBuildingPlacementTool(ITool tool)
+		// Internal rather than private: GamepadHintResolver reuses this to classify ToolService.ActiveTool
+		// the same way this controller already does, instead of re-deriving a second copy of the tool-type
+		// walk for the hint strip.
+		internal static bool IsBuildingPlacementTool(ITool tool)
 		{
 			if (tool is BlockObjectTool)
 			{
