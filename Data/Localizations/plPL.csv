@@ -16,20 +16,20 @@ KeyBinding.CursorHeightDown,Obniż wysokość kursora,
 ControllerSupport.Settings.HapticsHeader,Wibracje kontrolera,
 ControllerSupport.Settings.EnableVibration,Włącz wibracje kontrolera,
 ControllerSupport.Settings.ShortcutHintsHeader,Podpowiedzi skrótów,
-ControllerSupport.Settings.ShowInputHints,Pokaż podpowiedzi sterowania gamepadem
-ControllerSupport.Settings.HintStripPosition.Top,Góra
-ControllerSupport.Settings.HintStripPosition.Bottom,Dół
-ControllerSupport.Settings.HintStripPosition.None,Brak
-ControllerSupport.Hints.Move,Przesuń
-ControllerSupport.Hints.Scroll,Przewiń
-ControllerSupport.Hints.Select,Wybierz
-ControllerSupport.Hints.Place,Umieść
-ControllerSupport.Hints.Mark,Oznacz
-ControllerSupport.Hints.Rotate,Obróć
-ControllerSupport.Hints.Zoom,Powiększ
-ControllerSupport.Hints.Priority,Priorytet
-ControllerSupport.Hints.Adjust,Dostosuj
-ControllerSupport.Hints.Speed,Prędkość
-ControllerSupport.Hints.CursorHeight,Wysokość
+ControllerSupport.Settings.ShowInputHints,Pokaż podpowiedzi sterowania gamepadem,
+ControllerSupport.Settings.HintStripPosition.Top,Góra,
+ControllerSupport.Settings.HintStripPosition.Bottom,Dół,
+ControllerSupport.Settings.HintStripPosition.None,Brak,
+ControllerSupport.Hints.Move,Przesuń,
+ControllerSupport.Hints.Scroll,Przewiń,
+ControllerSupport.Hints.Select,Wybierz,
+ControllerSupport.Hints.Place,Umieść,
+ControllerSupport.Hints.Mark,Oznacz,
+ControllerSupport.Hints.Rotate,Obróć,
+ControllerSupport.Hints.Zoom,Powiększ,
+ControllerSupport.Hints.Priority,Priorytet,
+ControllerSupport.Hints.Adjust,Dostosuj,
+ControllerSupport.Hints.Speed,Prędkość,
+ControllerSupport.Hints.CursorHeight,Wysokość,
 ControllerSupport.Settings.CursorHeader,Kursor,
 ControllerSupport.Settings.AutohideCursor,Automatycznie ukrywaj kursor podczas używania gamepada,

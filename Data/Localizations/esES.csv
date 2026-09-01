@@ -16,20 +16,20 @@ KeyBinding.CursorHeightDown,Bajar altura del cursor,
 ControllerSupport.Settings.HapticsHeader,Vibración del mando,
 ControllerSupport.Settings.EnableVibration,Activar la vibración del mando,
 ControllerSupport.Settings.ShortcutHintsHeader,Indicaciones de atajos,
-ControllerSupport.Settings.ShowInputHints,Mostrar indicaciones de entrada del mando
-ControllerSupport.Settings.HintStripPosition.Top,Arriba
-ControllerSupport.Settings.HintStripPosition.Bottom,Abajo
-ControllerSupport.Settings.HintStripPosition.None,Ninguna
-ControllerSupport.Hints.Move,Mover
-ControllerSupport.Hints.Scroll,Desplazar
-ControllerSupport.Hints.Select,Seleccionar
-ControllerSupport.Hints.Place,Colocar
-ControllerSupport.Hints.Mark,Marcar
-ControllerSupport.Hints.Rotate,Girar
-ControllerSupport.Hints.Zoom,Acercar
-ControllerSupport.Hints.Priority,Prioridad
-ControllerSupport.Hints.Adjust,Ajustar
-ControllerSupport.Hints.Speed,Velocidad
-ControllerSupport.Hints.CursorHeight,Altura
+ControllerSupport.Settings.ShowInputHints,Mostrar indicaciones de entrada del mando,
+ControllerSupport.Settings.HintStripPosition.Top,Arriba,
+ControllerSupport.Settings.HintStripPosition.Bottom,Abajo,
+ControllerSupport.Settings.HintStripPosition.None,Ninguna,
+ControllerSupport.Hints.Move,Mover,
+ControllerSupport.Hints.Scroll,Desplazar,
+ControllerSupport.Hints.Select,Seleccionar,
+ControllerSupport.Hints.Place,Colocar,
+ControllerSupport.Hints.Mark,Marcar,
+ControllerSupport.Hints.Rotate,Girar,
+ControllerSupport.Hints.Zoom,Acercar,
+ControllerSupport.Hints.Priority,Prioridad,
+ControllerSupport.Hints.Adjust,Ajustar,
+ControllerSupport.Hints.Speed,Velocidad,
+ControllerSupport.Hints.CursorHeight,Altura,
 ControllerSupport.Settings.CursorHeader,Cursor,
 ControllerSupport.Settings.AutohideCursor,Ocultar automáticamente el cursor al usar un mando,

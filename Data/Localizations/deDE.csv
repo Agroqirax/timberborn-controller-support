@@ -16,20 +16,20 @@ KeyBinding.CursorHeightDown,Cursor-Höhe verringern,
 ControllerSupport.Settings.HapticsHeader,Controller-Vibration,
 ControllerSupport.Settings.EnableVibration,Controller-Vibration aktivieren,
 ControllerSupport.Settings.ShortcutHintsHeader,Tastenkürzel-Hinweise,
-ControllerSupport.Settings.ShowInputHints,Spielsteuerung-Hinweise anzeigen
-ControllerSupport.Settings.HintStripPosition.Top,Oben
-ControllerSupport.Settings.HintStripPosition.Bottom,Unten
-ControllerSupport.Settings.HintStripPosition.None,Keine
-ControllerSupport.Hints.Move,Bewegen
-ControllerSupport.Hints.Scroll,Scrollen
-ControllerSupport.Hints.Select,Auswählen
-ControllerSupport.Hints.Place,Platzieren
-ControllerSupport.Hints.Mark,Markieren
-ControllerSupport.Hints.Rotate,Drehen
-ControllerSupport.Hints.Zoom,Zoomen
-ControllerSupport.Hints.Priority,Priorität
-ControllerSupport.Hints.Adjust,Anpassen
-ControllerSupport.Hints.Speed,Geschwindigkeit
-ControllerSupport.Hints.CursorHeight,Höhe
+ControllerSupport.Settings.ShowInputHints,Spielsteuerung-Hinweise anzeigen,
+ControllerSupport.Settings.HintStripPosition.Top,Oben,
+ControllerSupport.Settings.HintStripPosition.Bottom,Unten,
+ControllerSupport.Settings.HintStripPosition.None,Keine,
+ControllerSupport.Hints.Move,Bewegen,
+ControllerSupport.Hints.Scroll,Scrollen,
+ControllerSupport.Hints.Select,Auswählen,
+ControllerSupport.Hints.Place,Platzieren,
+ControllerSupport.Hints.Mark,Markieren,
+ControllerSupport.Hints.Rotate,Drehen,
+ControllerSupport.Hints.Zoom,Zoomen,
+ControllerSupport.Hints.Priority,Priorität,
+ControllerSupport.Hints.Adjust,Anpassen,
+ControllerSupport.Hints.Speed,Geschwindigkeit,
+ControllerSupport.Hints.CursorHeight,Höhe,
 ControllerSupport.Settings.CursorHeader,Cursor,
 ControllerSupport.Settings.AutohideCursor,Mauszeiger bei Nutzung eines Controllers automatisch ausblenden,

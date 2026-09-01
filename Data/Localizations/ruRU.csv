@@ -16,20 +16,20 @@ KeyBinding.CursorHeightDown,Опустить высоту курсора,
 ControllerSupport.Settings.HapticsHeader,Вибрация контроллера,
 ControllerSupport.Settings.EnableVibration,Включить вибрацию контроллера,
 ControllerSupport.Settings.ShortcutHintsHeader,Подсказки по сочетаниям клавиш,
-ControllerSupport.Settings.ShowInputHints,Показывать подсказки управления геймпадом
-ControllerSupport.Settings.HintStripPosition.Top,Сверху
-ControllerSupport.Settings.HintStripPosition.Bottom,Снизу
-ControllerSupport.Settings.HintStripPosition.None,Нет
-ControllerSupport.Hints.Move,Перемещение
-ControllerSupport.Hints.Scroll,Прокрутка
-ControllerSupport.Hints.Select,Выбрать
-ControllerSupport.Hints.Place,Разместить
-ControllerSupport.Hints.Mark,Отметить
-ControllerSupport.Hints.Rotate,Повернуть
-ControllerSupport.Hints.Zoom,Масштаб
-ControllerSupport.Hints.Priority,Приоритет
-ControllerSupport.Hints.Adjust,Настроить
-ControllerSupport.Hints.Speed,Скорость
-ControllerSupport.Hints.CursorHeight,Высота
+ControllerSupport.Settings.ShowInputHints,Показывать подсказки управления геймпадом,
+ControllerSupport.Settings.HintStripPosition.Top,Сверху,
+ControllerSupport.Settings.HintStripPosition.Bottom,Снизу,
+ControllerSupport.Settings.HintStripPosition.None,Нет,
+ControllerSupport.Hints.Move,Перемещение,
+ControllerSupport.Hints.Scroll,Прокрутка,
+ControllerSupport.Hints.Select,Выбрать,
+ControllerSupport.Hints.Place,Разместить,
+ControllerSupport.Hints.Mark,Отметить,
+ControllerSupport.Hints.Rotate,Повернуть,
+ControllerSupport.Hints.Zoom,Масштаб,
+ControllerSupport.Hints.Priority,Приоритет,
+ControllerSupport.Hints.Adjust,Настроить,
+ControllerSupport.Hints.Speed,Скорость,
+ControllerSupport.Hints.CursorHeight,Высота,
 ControllerSupport.Settings.CursorHeader,Курсор,
 ControllerSupport.Settings.AutohideCursor,Автоматически скрывать курсор при использовании геймпада,

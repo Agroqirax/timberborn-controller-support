@@ -16,20 +16,20 @@ KeyBinding.CursorHeightDown,Diminuer la hauteur du curseur,
 ControllerSupport.Settings.HapticsHeader,Vibration de la manette,
 ControllerSupport.Settings.EnableVibration,Activer la vibration de la manette,
 ControllerSupport.Settings.ShortcutHintsHeader,Indications des raccourcis,
-ControllerSupport.Settings.ShowInputHints,Afficher les indications de commande de la manette
-ControllerSupport.Settings.HintStripPosition.Top,Haut
-ControllerSupport.Settings.HintStripPosition.Bottom,Bas
-ControllerSupport.Settings.HintStripPosition.None,Aucun
-ControllerSupport.Hints.Move,Déplacer
-ControllerSupport.Hints.Scroll,Faire défiler
-ControllerSupport.Hints.Select,Sélectionner
-ControllerSupport.Hints.Place,Placer
-ControllerSupport.Hints.Mark,Marquer
-ControllerSupport.Hints.Rotate,Rotation
-ControllerSupport.Hints.Zoom,Zoomer
-ControllerSupport.Hints.Priority,Priorité
-ControllerSupport.Hints.Adjust,Ajuster
-ControllerSupport.Hints.Speed,Vitesse
-ControllerSupport.Hints.CursorHeight,Hauteur
+ControllerSupport.Settings.ShowInputHints,Afficher les indications de commande de la manette,
+ControllerSupport.Settings.HintStripPosition.Top,Haut,
+ControllerSupport.Settings.HintStripPosition.Bottom,Bas,
+ControllerSupport.Settings.HintStripPosition.None,Aucun,
+ControllerSupport.Hints.Move,Déplacer,
+ControllerSupport.Hints.Scroll,Faire défiler,
+ControllerSupport.Hints.Select,Sélectionner,
+ControllerSupport.Hints.Place,Placer,
+ControllerSupport.Hints.Mark,Marquer,
+ControllerSupport.Hints.Rotate,Rotation,
+ControllerSupport.Hints.Zoom,Zoomer,
+ControllerSupport.Hints.Priority,Priorité,
+ControllerSupport.Hints.Adjust,Ajuster,
+ControllerSupport.Hints.Speed,Vitesse,
+ControllerSupport.Hints.CursorHeight,Hauteur,
 ControllerSupport.Settings.CursorHeader,Curseur,
 ControllerSupport.Settings.AutohideCursor,Masquer automatiquement le curseur en utilisant une manette,
