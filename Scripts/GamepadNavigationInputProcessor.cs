@@ -44,6 +44,7 @@ namespace ControllerSupport
 		private VisualElement _activeToolGroupRow;
 		private VisualElement _activeToolGroupOwner;
 		private int _initialSelectionFrames;
+		private bool _pendingEntityPanelFocus;
 		private float _nextFailureLogTime;
 
 		public GamepadNavigationInputProcessor(InputService inputService, InputBlocker inputBlocker,
@@ -149,6 +150,63 @@ namespace ControllerSupport
 		internal VisualElement Selected => _selected;
 
 		internal bool HasScrollableList => FindScrollView() != null;
+
+		// For GamepadSelectionController's FocusEntityPanelOnDeselect setting: puts the selection ring
+		// on the entity panel the instant select mode exits, rather than leaving it wherever the bottom
+		// bar's Select button sits. Deferred rather than acted on immediately - GamepadSelectionController
+		// calls this from Disengage(), while GamepadPlacementState.ToolEngaged (still true from the frame
+		// just ending) has _scope wiped to null every frame this processor runs while select mode is
+		// engaged (see the ToolEngaged branch in ProcessInputCore), and the very same B press that exits
+		// select mode also short-circuits this frame's own ProcessInputCore early via
+		// GamepadSelectModeCancelGate, before scope would even be re-established. Recording the request
+		// and applying it once EnterScope has actually run - this frame if nothing gated it, the next
+		// otherwise - is what makes it survive both.
+		internal void RequestFocusEntityPanel()
+		{
+			_pendingEntityPanelFocus = true;
+		}
+
+		// The entity panel is a permanent, name-tagged sibling in the bare HUD's own tree
+		// (Timberborn.EntityPanelSystem.EntityPanel loads it once and only ever toggles its display
+		// style - see EntityPanel.Load/Show/Hide), so it is always reachable by name off the current
+		// scope; NavigationCandidates.IsDisplayed is what actually tells "open" from "hidden" apart, the
+		// same check RefreshCandidates/Collect already prune on. Silently does nothing when the panel
+		// isn't showing (nothing was selected, or a dialog is stacked over the HUD and _scope is that
+		// dialog instead) rather than searching elsewhere for it - and always consumes the request either
+		// way, so a panel that never reappears doesn't leave this retrying forever.
+		private void ApplyPendingEntityPanelFocus()
+		{
+			if (!_pendingEntityPanelFocus)
+			{
+				return;
+			}
+
+			_pendingEntityPanelFocus = false;
+
+			var entityPanel = _scope?.Q<VisualElement>("EntityPanel");
+			if (entityPanel == null || !NavigationCandidates.IsDisplayed(entityPanel))
+			{
+				return;
+			}
+
+			NavigationCandidates.Collect(entityPanel, _candidates);
+
+			// Prefer the Focus/follow button (Timberborn.EntityPanelSystem.FollowObjectFragment, name
+			// "FollowObjectFragment") over SpatialNavigator.First's plain top-left rule - LeftButtons
+			// holds nothing but DeleteBuildingFragment for a regular building, so "top-left" landed on
+			// Delete every time, which is a far worse thing to have armed under A than a camera recentre.
+			// Falls back to top-left for panels that don't have a Focus button at all (e.g. non-followable
+			// entities), rather than selecting nothing.
+			var target = _candidates.Find(c => c.name == "FollowObjectFragment" && NavigationCandidates.IsDisplayed(c))
+				?? SpatialNavigator.First(_candidates);
+			if (target == null)
+			{
+				return;
+			}
+
+			Select(target);
+			ScrollIntoView(target);
+		}
 
 		// Focusing a TextField blocks the whole regular input-processor chain - see the guard at the
 		// top of ProcessInputCore for why - so this is the only way B still reaches the game while the
@@ -256,6 +314,7 @@ namespace ControllerSupport
 				EnterScope(scope);
 			}
 
+			ApplyPendingEntityPanelFocus();
 			RefreshHighlightIfMoved();
 			TryRecoverFromClosedToolGroup();
 			TryInitialSelection();

@@ -18,6 +18,9 @@ namespace ControllerSupport
 			},
 			ModSettingDescriptor.CreateLocalized("ControllerSupport.Settings.HideCursor"));
 
+		public ModSetting<bool> FocusEntityPanelOnDeselect { get; } = new(true,
+			ModSettingDescriptor.CreateLocalized("ControllerSupport.Settings.FocusEntityPanelOnDeselect"));
+
 		public CursorSettings(ISettings settings, ModSettingsOwnerRegistry modSettingsOwnerRegistry,
 			ModRepository modRepository) : base(settings, modSettingsOwnerRegistry, modRepository)
 		{

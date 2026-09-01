@@ -132,6 +132,8 @@ namespace ControllerSupport
 		private readonly WaterOpacityService _waterOpacityService;
 		private readonly KeyBindingRegistry _keyBindingRegistry;
 		private readonly ConstructionModeToggle _constructionMode;
+		private readonly GamepadNavigationInputProcessor _navigationInputProcessor;
+		private readonly CursorSettings _cursorSettings;
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
@@ -162,7 +164,8 @@ namespace ControllerSupport
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
 			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
 			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry,
-			ConstructionModeService constructionModeService)
+			ConstructionModeService constructionModeService,
+			GamepadNavigationInputProcessor navigationInputProcessor, CursorSettings cursorSettings)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -178,6 +181,8 @@ namespace ControllerSupport
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_constructionMode = new ConstructionModeToggle(constructionModeService);
+			_navigationInputProcessor = navigationInputProcessor;
+			_cursorSettings = cursorSettings;
 		}
 
 		public void Load()
@@ -549,6 +554,15 @@ namespace ControllerSupport
 			_constructionMode.Disable();
 			_waterOpacityToggle.ShowWater();
 			GamepadPlacementState.Clear();
+
+			// Skips the trip back across the bottom bar to reach whatever was just selected. Gated on
+			// IsAnythingSelected rather than a locally-tracked "did I select something" flag, since a
+			// plain mouse click (let through untouched - see the class comment) can select something
+			// this controller never itself confirmed.
+			if (_cursorSettings.FocusEntityPanelOnDeselect.Value && _entitySelectionService.IsAnythingSelected)
+			{
+				_navigationInputProcessor.RequestFocusEntityPanel();
+			}
 		}
 
 		private void ReportFailure(Exception e)
