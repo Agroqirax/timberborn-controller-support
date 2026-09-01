@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Gamepad button icons in shortcut hints are now always shown; removed the "Show gamepad button icons in shortcut hints" mod setting
+- Shortcut hint strip now orders hints consistently (face buttons, then movement, then camera/world controls) instead of an order that could vary by context
 - Cursor autohide now applies globally whenever the gamepad is in control - main menu, camera navigation, dialogs, any tool - instead of only inside building placement, area selection, select mode and zipline connection
 
 ## [1.1.2.0.6] - 2026-08-30
