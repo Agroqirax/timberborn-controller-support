@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Persistent gamepad input-hint strip ("(A) Select", etc.) showing the player's most relevant actions for whatever they're currently doing - entity panel, dialog, building placement, area selection, scrollable list, bottom bar. Configurable to appear at the Top or Bottom of the screen, or turned off, via a new mod setting
 - "Hide cursor" mod setting (Always / Auto / Never, default Auto) to control whether the cursor is automatically hidden while using a gamepad, always hidden, or never hidden
 - "Focus entity panel on exiting select mode" mod setting (default on) to jump the gamepad cursor straight onto the entity panel when backing out of select mode with something selected, instead of leaving it on the bottom bar
+- New "Focus on Selection" keybind, bound to the left stick click by default, to center the camera on whatever's currently selected
 
 ### Changed
 

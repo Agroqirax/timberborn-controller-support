@@ -23,6 +23,7 @@ namespace ControllerSupport
 			Bind<GamepadAreaSelectionController>().AsSingleton();
 			Bind<GamepadSelectionController>().AsSingleton();
 			Bind<GamepadEntitySliderController>().AsSingleton();
+			Bind<GamepadFocusOnSelectionController>().AsSingleton();
 		}
 	}
 }
