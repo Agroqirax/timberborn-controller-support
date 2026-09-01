@@ -6,8 +6,8 @@ namespace ControllerSupport
 	// Single global source of truth for the system (and any game-set custom) cursor's visibility -
 	// both route through the one Cursor.visible flag InputService.HideCursor/ShowCursor toggle. Runs
 	// unconditionally every frame, everywhere the mod's gamepad navigation works (menus, game, map
-	// editor): the cursor is hidden whenever RecentInputDeviceTracker says the gamepad is in control
-	// and the player hasn't turned the setting off, shown otherwise. No dialog/tool/exit special
+	// editor): "Always" hides unconditionally, "Never" shows unconditionally, and "Auto" hides
+	// whenever RecentInputDeviceTracker says the gamepad is in control. No dialog/tool/exit special
 	// casing - those all reach the cursor through the exact same InputService calls this class makes,
 	// and the mod's own gamepad UI navigation (see ARCHITECTURE.md) already drives dialogs and menus
 	// without needing the OS cursor visible at all.
@@ -27,7 +27,14 @@ namespace ControllerSupport
 
 		public void UpdateSingleton()
 		{
-			if (_settings.AutohideCursor.Value && _recentInputDeviceTracker.GamepadControlled)
+			var hide = _settings.HideCursor.Value switch
+			{
+				"Always" => true,
+				"Never" => false,
+				_ => _recentInputDeviceTracker.GamepadControlled,
+			};
+
+			if (hide)
 			{
 				_inputService.HideCursor();
 			}

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using ModSettings.Common;
 using ModSettings.Core;
 using Timberborn.Modding;
 using Timberborn.SettingsSystem;
@@ -6,8 +8,15 @@ namespace ControllerSupport
 {
 	internal class CursorSettings : ModSettingsOwner
 	{
-		public ModSetting<bool> AutohideCursor { get; } =
-			new(true, ModSettingDescriptor.CreateLocalized("ControllerSupport.Settings.AutohideCursor"));
+		public LimitedStringModSetting HideCursor { get; } = new(
+			1, // "Auto"
+			new List<LimitedStringModSettingValue>
+			{
+				new("Always", "ControllerSupport.Settings.HideCursor.Always"),
+				new("Auto", "ControllerSupport.Settings.HideCursor.Auto"),
+				new("Never", "ControllerSupport.Settings.HideCursor.Never"),
+			},
+			ModSettingDescriptor.CreateLocalized("ControllerSupport.Settings.HideCursor"));
 
 		public CursorSettings(ISettings settings, ModSettingsOwnerRegistry modSettingsOwnerRegistry,
 			ModRepository modRepository) : base(settings, modSettingsOwnerRegistry, modRepository)
