@@ -62,9 +62,10 @@ namespace ControllerSupport
 	// A real mouse click is still let through, though - see the MouseLeftKey handling in Update() -
 	// since hiding the cursor for select mode's entire engagement, with no way to click anything with
 	// it even though the player can still reach the bottom bar/entity panel by hand, read as a bug in
-	// its own right the first time it shipped. GamepadMouseHandoff is reused here purely for its
-	// cursor-visibility side effect (Cursor.visible tracking recent device activity); its returned
-	// control decision is ignored, since the box's *position* is never handed to the mouse.
+	// its own right the first time it shipped. Cursor visibility itself is CursorAutohideController's
+	// global concern now, not this class's - it hides/shows purely off whether the gamepad is
+	// currently in control, so a real mouse click here still works once that control decision has
+	// actually flipped, same as everywhere else in the mod.
 	//
 	// CursorTool is also the game's default tool - active whenever nothing else is - so unlike an
 	// area tool that only becomes ActiveTool when the player deliberately opens it, ActiveTool alone
@@ -134,7 +135,6 @@ namespace ControllerSupport
 
 		private readonly GamepadGridStepReader _stepReader = new GamepadGridStepReader();
 		private readonly GamepadHeightStepReader _heightStepReader = new GamepadHeightStepReader();
-		private readonly GamepadMouseHandoff _handoff;
 
 		private RectangleBoundsDrawer _cursorBoundsDrawer;
 		private WaterOpacityToggle _waterOpacityToggle;
@@ -162,7 +162,7 @@ namespace ControllerSupport
 			EntitySelectionService entitySelectionService, SelectableObjectRaycaster selectableObjectRaycaster,
 			RollingHighlighter rollingHighlighter, RectangleBoundsDrawerFactory rectangleBoundsDrawerFactory,
 			WaterOpacityService waterOpacityService, KeyBindingRegistry keyBindingRegistry,
-			RecentInputDeviceTracker recentInputDeviceTracker, ConstructionModeService constructionModeService)
+			ConstructionModeService constructionModeService)
 		{
 			_inputService = inputService;
 			_cameraService = cameraService;
@@ -178,7 +178,6 @@ namespace ControllerSupport
 			_waterOpacityService = waterOpacityService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_constructionMode = new ConstructionModeToggle(constructionModeService);
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
 		}
 
 		public void Load()
@@ -198,7 +197,6 @@ namespace ControllerSupport
 			_rollingHighlighter.UnhighlightAllPrimary();
 			_constructionMode.Disable();
 			_waterOpacityToggle.ShowWater();
-			_inputService.ShowCursor();
 			GamepadPlacementState.Clear();
 		}
 
@@ -261,10 +259,6 @@ namespace ControllerSupport
 			if (_panelTracker.HasStackedPanel)
 			{
 				GamepadPlacementState.Clear();
-
-				// The dialog needs the real cursor visible to be clickable - re-hidden below once
-				// engagement resumes on whatever frame the dialog closes.
-				_inputService.ShowCursor();
 				return;
 			}
 
@@ -297,12 +291,6 @@ namespace ControllerSupport
 
 			var step = _stepReader.ReadStep(_keyBindingRegistry, _cameraService.HorizontalAngle);
 			var heightStep = _heightStepReader.ReadStep(_inputService);
-
-			// Cursor-visibility side effect only - see the class comment above for why the returned
-			// control decision is ignored here. UIConfirm doubles as the "gamepad action" signal since
-			// this controller has no separate placement-style Confirm key; a height press counts too,
-			// so dpad up/down alone is enough to hide the mouse cursor again.
-			_handoff.Update(step, _inputService.UIConfirm || heightStep != 0);
 
 			if (step != Vector2Int.zero)
 			{
@@ -528,7 +516,6 @@ namespace ControllerSupport
 			_heightStepReader.Reset();
 			_heightLocked = false;
 			_rayOriginHeight = GamepadCursorLevels.RayHeight;
-			_handoff.Reset();
 
 			// Seeds through the camera via PickTerrainCoordinates rather than a fixed-height plane -
 			// see GamepadBuildingPlacementController.Activate for why.
@@ -561,14 +548,12 @@ namespace ControllerSupport
 			_rollingHighlighter.UnhighlightAllPrimary();
 			_constructionMode.Disable();
 			_waterOpacityToggle.ShowWater();
-			_inputService.ShowCursor();
 			GamepadPlacementState.Clear();
 		}
 
 		private void ReportFailure(Exception e)
 		{
 			GamepadPlacementState.Clear();
-			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;
 			if (now < _nextFailureLogTime)

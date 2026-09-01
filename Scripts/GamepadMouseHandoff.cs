@@ -1,4 +1,3 @@
-using Timberborn.InputSystem;
 using Timberborn.KeyBindingSystem;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -6,17 +5,16 @@ using UnityEngine.InputSystem;
 namespace ControllerSupport
 {
 	// Decides which physical device is driving a gamepad-tracked cursor this frame, so
-	// GamepadBuildingPlacementController/GamepadAreaSelectionController can keep the gamepad and a
-	// real mouse interchangeable on the same tool instead of the gamepad locking the mouse out for
-	// as long as the tool is active. Judged on genuine activity, not stale position: a mouse that
-	// hasn't moved since the tool was entered (or since the stick last moved) shouldn't be treated
-	// as "in control" just because it's technically the last thing that clicked something, or
-	// placement would seed onto wherever the OS cursor happens to be resting - often a bottom-bar
-	// button, not a useful world position.
+	// GamepadBuildingPlacementController/GamepadAreaSelectionController/
+	// GamepadZiplineConnectionController can keep the gamepad and a real mouse interchangeable on
+	// the same tool instead of the gamepad locking the mouse out for as long as the tool is active.
+	// Judged on genuine activity, not stale position: a mouse that hasn't moved since the tool was
+	// entered (or since the stick last moved) shouldn't be treated as "in control" just because it's
+	// technically the last thing that clicked something, or placement would seed onto wherever the
+	// OS cursor happens to be resting - often a bottom-bar button, not a useful world position.
 	//
-	// GamepadSelectionController also uses this, but only for the cursor-visibility side effect on
-	// Update() - it deliberately ignores the returned control decision, since gamepad select-mode's
-	// own box is never handed to the mouse position-wise (see that class's own comment for why).
+	// Cursor *visibility* is a separate, global concern owned by CursorAutohideController - this
+	// class only ever decides cursor *position* handoff for the tool that owns it.
 	//
 	// Ties (both a stick step and real mouse activity land the same frame) favour the gamepad. Per
 	// ARCHITECTURE.md's Environment note, the dev's own Steam Controller can emit synthetic mouse
@@ -36,15 +34,13 @@ namespace ControllerSupport
 		private const string MouseLeftKey = "MouseLeft";
 
 		private readonly KeyBindingRegistry _keyBindingRegistry;
-		private readonly InputService _inputService;
 		private readonly RecentInputDeviceTracker _recentInputDeviceTracker;
 		private bool _gamepadControlled = true;
 
-		public GamepadMouseHandoff(KeyBindingRegistry keyBindingRegistry, InputService inputService,
+		public GamepadMouseHandoff(KeyBindingRegistry keyBindingRegistry,
 			RecentInputDeviceTracker recentInputDeviceTracker)
 		{
 			_keyBindingRegistry = keyBindingRegistry;
-			_inputService = inputService;
 			_recentInputDeviceTracker = recentInputDeviceTracker;
 		}
 
@@ -65,14 +61,6 @@ namespace ControllerSupport
 		// be a fresh down-edge on whatever this controller treats as its own gamepad action button -
 		// a bare press with the stick otherwise idle should still count as "the player is using the
 		// gamepad" even though it produces no step.
-		//
-		// Also owns hiding/showing the real system (and any game-set custom) cursor to match: both
-		// route through the one Cursor.visible flag InputService.HideCursor/ShowCursor toggle, so
-		// hiding it here covers whatever cursor image CursorService last set, not just the plain OS
-		// arrow. Shown again the instant the mouse takes control, hidden again the instant the
-		// gamepad does - the owning controller is still responsible for calling ShowCursor() once
-		// more on its own exit path (Deactivate/Unload/ReportFailure), since this class has no way to
-		// know the tool has stopped calling it at all.
 		public bool Update(Vector2Int step, bool gamepadActionDown)
 		{
 			if (step != Vector2Int.zero || gamepadActionDown)
@@ -82,15 +70,6 @@ namespace ControllerSupport
 			else if (MouseActive())
 			{
 				_gamepadControlled = false;
-			}
-
-			if (_gamepadControlled)
-			{
-				_inputService.HideCursor();
-			}
-			else
-			{
-				_inputService.ShowCursor();
 			}
 
 			return _gamepadControlled;

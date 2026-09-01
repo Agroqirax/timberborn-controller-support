@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,Приоритет
 ControllerSupport.Hints.Adjust,Настроить
 ControllerSupport.Hints.Speed,Скорость
 ControllerSupport.Hints.CursorHeight,Высота
+ControllerSupport.Settings.CursorHeader,Курсор,
+ControllerSupport.Settings.AutohideCursor,Автоматически скрывать курсор при использовании геймпада,

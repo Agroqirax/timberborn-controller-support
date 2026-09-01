@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,Priorité
 ControllerSupport.Hints.Adjust,Ajuster
 ControllerSupport.Hints.Speed,Vitesse
 ControllerSupport.Hints.CursorHeight,Hauteur
+ControllerSupport.Settings.CursorHeader,Curseur,
+ControllerSupport.Settings.AutohideCursor,Masquer automatiquement le curseur en utilisant une manette,

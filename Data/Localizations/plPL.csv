@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,Priorytet
 ControllerSupport.Hints.Adjust,Dostosuj
 ControllerSupport.Hints.Speed,Prędkość
 ControllerSupport.Hints.CursorHeight,Wysokość
+ControllerSupport.Settings.CursorHeader,Kursor,
+ControllerSupport.Settings.AutohideCursor,Automatycznie ukrywaj kursor podczas używania gamepada,

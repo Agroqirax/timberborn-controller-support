@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,Priorität
 ControllerSupport.Hints.Adjust,Anpassen
 ControllerSupport.Hints.Speed,Geschwindigkeit
 ControllerSupport.Hints.CursorHeight,Höhe
+ControllerSupport.Settings.CursorHeader,Cursor,
+ControllerSupport.Settings.AutohideCursor,Mauszeiger bei Nutzung eines Controllers automatisch ausblenden,

@@ -145,7 +145,7 @@ namespace ControllerSupport
 			_ziplineTowerRegistry = ziplineTowerRegistry;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, recentInputDeviceTracker);
 		}
 
 		public void Load()
@@ -161,7 +161,6 @@ namespace ControllerSupport
 		{
 			GamepadPlacementState.Clear();
 			ClearTooltipAnchor();
-			_inputService.ShowCursor();
 		}
 
 		public void ProcessInput()
@@ -195,7 +194,6 @@ namespace ControllerSupport
 			{
 				GamepadPlacementState.Clear();
 				ClearTooltipAnchor();
-				_inputService.ShowCursor();
 				return;
 			}
 
@@ -219,7 +217,6 @@ namespace ControllerSupport
 				// real mouse click still works untouched below since Active stays false.
 				GamepadPlacementState.Active = false;
 				ClearTooltipAnchor();
-				_inputService.ShowCursor();
 				return;
 			}
 
@@ -403,14 +400,12 @@ namespace ControllerSupport
 			_selected = null;
 			GamepadPlacementState.Clear();
 			ClearTooltipAnchor();
-			_inputService.ShowCursor();
 		}
 
 		private void ReportFailure(Exception e)
 		{
 			GamepadPlacementState.Clear();
 			ClearTooltipAnchor();
-			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;
 			if (now < _nextFailureLogTime)

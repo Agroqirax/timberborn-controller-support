@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,優先度
 ControllerSupport.Hints.Adjust,調整
 ControllerSupport.Hints.Speed,速度
 ControllerSupport.Hints.CursorHeight,高さ
+ControllerSupport.Settings.CursorHeader,カーソル,
+ControllerSupport.Settings.AutohideCursor,ゲームパッド使用時にカーソルを自動的に非表示にする,

@@ -163,7 +163,7 @@ namespace ControllerSupport
 			_specService = specService;
 			_keyBindingRegistry = keyBindingRegistry;
 			_confirmGate = new ConfirmReleaseGate(inputService);
-			_handoff = new GamepadMouseHandoff(keyBindingRegistry, inputService, recentInputDeviceTracker);
+			_handoff = new GamepadMouseHandoff(keyBindingRegistry, recentInputDeviceTracker);
 		}
 
 		public void Load()
@@ -215,7 +215,6 @@ namespace ControllerSupport
 		{
 			GamepadPlacementState.Clear();
 			ClearTooltipAnchor();
-			_inputService.ShowCursor();
 		}
 
 		public void ProcessInput()
@@ -248,10 +247,6 @@ namespace ControllerSupport
 			{
 				GamepadPlacementState.Clear();
 				ClearTooltipAnchor();
-
-				// The dialog needs the real cursor visible to be clickable - re-hidden by _handoff on
-				// whatever frame the dialog closes and the gamepad resumes driving.
-				_inputService.ShowCursor();
 				return;
 			}
 
@@ -637,7 +632,6 @@ namespace ControllerSupport
 			_active = false;
 			GamepadPlacementState.Clear();
 			ClearTooltipAnchor();
-			_inputService.ShowCursor();
 		}
 
 		// See GamepadZiplineConnectionController.ClearTooltipAnchor - Current has to clear alongside
@@ -653,7 +647,6 @@ namespace ControllerSupport
 		{
 			GamepadPlacementState.Clear();
 			ClearTooltipAnchor();
-			_inputService.ShowCursor();
 
 			var now = Time.unscaledTime;
 			if (now < _nextFailureLogTime)

@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,优先级
 ControllerSupport.Hints.Adjust,调整
 ControllerSupport.Hints.Speed,速度
 ControllerSupport.Hints.CursorHeight,高度
+ControllerSupport.Settings.CursorHeader,光标,
+ControllerSupport.Settings.AutohideCursor,使用手柄时自动隐藏光标,

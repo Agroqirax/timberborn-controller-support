@@ -31,3 +31,5 @@ ControllerSupport.Hints.Priority,Priorità
 ControllerSupport.Hints.Adjust,Regola
 ControllerSupport.Hints.Speed,Velocità
 ControllerSupport.Hints.CursorHeight,Altezza
+ControllerSupport.Settings.CursorHeader,Cursore,
+ControllerSupport.Settings.AutohideCursor,Nascondi automaticamente il cursore quando si usa un controller,
