@@ -102,6 +102,7 @@ A few mods have received special support to improve their use with a controller.
 - [FPP Camera](https://steamcommunity.com/sharedfiles/filedetails/?id=3361074929): New default keybinds, accept camera keys for rotating (right stick instead of mouse), 360&deg; analog movement instead of fixed speed & angles
 - [Cutter Tool](https://steamcommunity.com/sharedfiles/filedetails/?id=3334584916) & [Grid Cutting Patterns](https://steamcommunity.com/sharedfiles/filedetails/?id=3739849811): Use stick for marking tree area
 - [Building Blueprints](https://steamcommunity.com/sharedfiles/filedetails/?id=3667559269): Use stick for creating, placing & demolishing blueprints
+- [Radial Toolbar [ModContest1]](https://steamcommunity.com/sharedfiles/filedetails/?id=3714134407): Start to open/close it, stick to hover a wedge, A to select
 
 ## Known issues
 

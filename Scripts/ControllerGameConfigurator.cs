@@ -24,6 +24,7 @@ namespace ControllerSupport
 			Bind<GamepadSelectionController>().AsSingleton();
 			Bind<GamepadEntitySliderController>().AsSingleton();
 			Bind<GamepadFocusOnSelectionController>().AsSingleton();
+			Bind<RadialToolbarGamepadController>().AsSingleton();
 		}
 	}
 }

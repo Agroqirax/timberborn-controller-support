@@ -22,6 +22,15 @@ namespace ControllerSupport
 			}
 
 			BuildingBlueprintsIntegration.TryApply(harmony);
+
+			try
+			{
+				RadialToolbarIntegration.TryApply(harmony);
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"[ControllerSupport] RadialToolbar integration failed to start: {e}");
+			}
 		}
 	}
 }

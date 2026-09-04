@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - "Hide cursor" mod setting (Always / Auto / Never, default Auto) to control whether the cursor is automatically hidden while using a gamepad, always hidden, or never hidden
 - "Focus entity panel on exiting select mode" mod setting (default on) to jump the gamepad cursor straight onto the entity panel when backing out of select mode with something selected, instead of leaving it on the bottom bar
 - New "Focus on Selection" keybind, bound to the left stick click by default, to center the camera on whatever's currently selected
+- [Radial Toolbar [ModContest1]](https://steamcommunity.com/sharedfiles/filedetails/?id=3714134407) support: Start opens/closes it, left stick previews a wedge (auto-highlighting the first available one whenever the menu or a category opens), A/Confirm selects it alongside the existing mouse click
 
 ### Changed
 

@@ -26,6 +26,9 @@
     },
     {
       "Id": "BuildingBlueprints"
+    },
+    {
+      "Id": "RadialToolbar"
     }
   ]
 }
